@@ -217,3 +217,11 @@ body:has(.sheet) .map-route, body:has(.sheet) .leaflet-control-attribution { dis
 .toast { position: fixed; z-index: 1100; left: 50%; transform: translateX(-50%); bottom: calc(100px + env(safe-area-inset-bottom));
   padding: 10px 16px; border-radius: 20px; font-size: 14px; font-weight: 600; animation: up .2s ease; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+.credits { margin-bottom: 8px; }
+.credits a.chip { color: var(--text); }
+
+/* keep scrolling chip rows from widening their card */
+.card-pad > * { min-width: 0; }
+.chips { min-width: 0; max-width: 100%; }
+.page > * { min-width: 0; }

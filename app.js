@@ -64,13 +64,28 @@
   }
   window.addEventListener('hashchange', route);
 
+  // ---------- credits ----------
+  const SOCIALS = [
+    ['Website', 'https://alireza12t.github.io/'], ['GitHub', 'https://github.com/alireza12t'],
+    ['X', 'https://x.com/DevMvRick'], ['YouTube', 'https://www.youtube.com/@DevMvRick'],
+    ['Instagram', 'https://www.instagram.com/devmvrick'], ['LinkedIn', 'https://www.linkedin.com/in/alireza12t'],
+  ];
+  function creditsCard() {
+    return `<section class="card card-pad credits">
+      <div class="row-ctl" style="min-height:0"><div><div class="label">Made by</div><div style="font-size:17px;font-weight:700">Alireza Toghiani</div></div>
+        <a class="mono" href="https://github.com/alireza12t/gta6-runsheet" target="_blank" rel="noopener" style="font-size:13px;text-decoration:none">Source code</a></div>
+      <div class="chips" style="flex-wrap:wrap">${SOCIALS.map(([n, u]) => `<a class="chip" href="${u}" target="_blank" rel="noopener" style="text-decoration:none;background:var(--fill)">${n}</a>`).join('')}</div>
+      <div class="muted" style="font-size:12px;line-height:1.45">Locations via <a href="https://gta6tracker.org/" target="_blank" rel="noopener">gta6tracker.org</a>, built on the <a href="https://gta.fandom.com/" target="_blank" rel="noopener">GTA Wiki</a> (CC BY-SA). Unverified. Map library <a href="https://leafletjs.com/" target="_blank" rel="noopener">Leaflet</a>. Unofficial fan project, not affiliated with Rockstar Games or Take-Two Interactive.</div>
+    </section>`;
+  }
+
   // ---------- install ----------
   let installPrompt = null;
   addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; if (location.hash.startsWith('#plan') || !location.hash) route(); });
   const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   function installCard() {
-    if (standalone() || S.hideInstall) return '';
+    if (standalone() || S.hideInstall || location.search.includes('shot')) return '';
     if (installPrompt) return `<section class="card card-pad" style="flex-direction:row;align-items:center;justify-content:space-between">
       <div><div style="font-weight:700">Install Runsheet</div><div class="muted" style="font-size:13px">Opens full screen and works offline.</div></div>
       <div style="display:flex;gap:6px"><button class="icon-btn" id="hideInstall" aria-label="Dismiss">✕</button><button class="btn primary" id="doInstall" style="height:40px;width:auto;padding:0 16px;font-size:15px">Install</button></div></section>`;
@@ -146,7 +161,8 @@
       </section>
 
       <a class="btn primary" href="#run" id="build">Build my ${S.mins} min run</a>
-      <p class="foot">Run size is a first guess (stops, not minutes) until we time real drives. Board entries come from guides; "src" shows how many agree. Not affiliated with Rockstar Games or Take-Two.</p>
+      <p class="foot">Run size is a first guess (stops, not minutes) until we time real drives. Board entries come from guides; "src" shows how many agree.</p>
+      ${creditsCard()}
     </div>`;
 
     bindInstall();
@@ -401,7 +417,7 @@
         <span class="big-count">${got}<small> / ${total}</small></span></div><span class="bar"><i style="width:${Math.round(got / total * 100)}%"></i></span></section>
       <div class="seg" role="tablist">${tabs.map(([id, n]) => `<button role="tab" data-tab="${id}" aria-selected="${tab === id}" aria-pressed="${tab === id}">${n}</button>`).join('')}</div>
       ${body}
-      <p class="foot">Unofficial fan guide. Not affiliated with Rockstar Games or Take-Two Interactive.</p></div>`;
+      ${creditsCard()}</div>`;
     view.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => (location.hash = 'guide/' + b.dataset.tab)));
     bindChecks(() => renderGuide(tab));
     view.querySelectorAll('[data-showcat]').forEach((a) => (a.onclick = () => { S.mapCats = [a.dataset.showcat]; save(); }));
