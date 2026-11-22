@@ -1,0 +1,16 @@
+{
+  "name": "Runsheet: unofficial GTA VI companion",
+  "short_name": "Runsheet",
+  "description": "Plan your GTA VI session, track collectibles and route what's left. Unofficial fan guide.",
+  "start_url": "./#plan",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F2F7",
+  "theme_color": "#E8590C",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
