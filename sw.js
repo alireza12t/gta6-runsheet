@@ -1,6 +1,6 @@
 // Offline support. App files are cached on install; data and map library too.
 // Change VERSION (cache name) when shipping changes so phones pick up the new files.
-const VERSION = 'runsheet-cache-8';
+const VERSION = 'runsheet-cache-9';
 const CORE = [
   './', './index.html', './styles.css', './app.js', './route.js', './manifest.webmanifest',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
@@ -19,21 +19,19 @@ self.addEventListener('activate', (e) => {
     .then(() => self.clients.claim()));
 });
 
-// Data: network first so updates arrive, cache when offline. Everything else: cache first.
+// App files and data: network first, so a new version shows on the next open; the cache is only the offline copy.
+// Map tiles, icons and libraries: cache first. If tiles change, bump VERSION so old ones are dropped.
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  const isData = url.pathname.includes('/data/');
-  if (isData) {
-    e.respondWith(fetch(req).then((res) => { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); return res; })
-      .catch(() => caches.match(req)));
+  const keep = (res) => { if (res.ok && (url.origin === location.origin || /unpkg\.com|gstatic\.com|googleapis\.com$/.test(url.hostname))) {
+    const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); } return res; };
+  const stable = url.origin !== location.origin || /\/(tiles|icons)\//.test(url.pathname);
+  if (stable) {
+    e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then(keep)).catch(() => Response.error()));
     return;
   }
-  e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-    if (res.ok && (url.origin === location.origin || url.hostname.endsWith('gstatic.com') || url.hostname.endsWith('googleapis.com'))) {
-      const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy));
-    }
-    return res;
-  }).catch(() => (req.mode === 'navigate' ? caches.match('./index.html') : Response.error()))));
+  e.respondWith(fetch(req).then(keep).catch(() => caches.match(req, { ignoreSearch: true })
+    .then((hit) => hit || (req.mode === 'navigate' ? caches.match('./index.html') : Response.error()))));
 });
