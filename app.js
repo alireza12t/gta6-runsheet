@@ -97,6 +97,7 @@
     if (!D) return; // data still loading
     killMap();
     sheetRoot.innerHTML = '';
+    const fr = $('#filters-root'); if (fr) fr.innerHTML = ''; // map filters panel
     document.body.classList.remove('searching');
     view.className = '';
     const [name, arg] = (location.hash.slice(1) || 'plan').split('/');
@@ -340,14 +341,51 @@
     let wpRing = null;
 
     const chipCats = [...D.cats];
+    // Map filters: one Filters button opens a grouped panel; the row only shows what is on (tap a chip to hide it).
+    const GROUP_NAMES = { collectible: 'Collectibles', money: 'Money', story: 'Story', services: 'Services', shops: 'Shops & food', places: 'Places' };
+    const MORE_ONLY = ['building', 'structure']; // counted, not tracked as found
+    const X_ICON = '<svg class="x" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 3l6 6M9 3 3 9"/></svg>';
     function drawChips() {
-      $('#mapChips').innerHTML = `<button class="chip" id="hideFound" aria-pressed="${S.hideFound}">Hide found</button>` +
-        chipCats.map((c) => `<button class="chip" data-cat="${c.id}" aria-pressed="${S.mapCats.includes(c.id)}"><span class="dot" style="background:${color(c.id)}"></span>${esc(c.name)} <span class="mono" style="opacity:.6">${c.count}</span></button>`).join('');
+      const on = chipCats.filter((c) => S.mapCats.includes(c.id));
+      $('#mapChips').innerHTML = `<button class="chip filters-btn" id="openFilters" aria-haspopup="dialog">
+          <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M3 5h12M5.5 9h7M8 13h2"/></svg>Filters${on.length ? ` <b>${on.length}</b>` : ''}</button>` +
+        `<button class="chip" id="hideFound" aria-pressed="${S.hideFound}">Hide found</button>` +
+        on.map((c) => `<button class="chip on" data-off="${c.id}" aria-label="Hide ${esc(c.name)}"><span class="dot" style="background:${color(c.id)}"></span>${esc(c.name)}${X_ICON}</button>`).join('');
+      $('#openFilters').onclick = openFilters;
       $('#hideFound').onclick = () => { S.hideFound = !S.hideFound; save(); drawChips(); drawPins(); };
-      $('#mapChips').querySelectorAll('[data-cat]').forEach((b) => (b.onclick = () => {
-        const id = b.dataset.cat;
-        S.mapCats = S.mapCats.includes(id) ? S.mapCats.filter((c) => c !== id) : [...S.mapCats, id];
-        save(); drawChips(); drawPins();
+      $('#mapChips').querySelectorAll('[data-off]').forEach((b) => (b.onclick = () => {
+        S.mapCats = S.mapCats.filter((c) => c !== b.dataset.off); save(); drawChips(); drawPins();
+      }));
+    }
+    function openFilters() {
+      // lives on the page (not inside the map view) so it sits above the tab bar
+      const root = $('#filters-root') || document.body.appendChild(Object.assign(document.createElement('div'), { id: 'filters-root' }));
+      const keep = root.querySelector('.fl-body')?.scrollTop || 0;
+      const groups = [...new Set(chipCats.map((c) => c.group))];
+      const count = (c) => MORE_ONLY.includes(c.id) ? `${c.count}` : `${foundCount(c.id)}/${c.count}`;
+      root.innerHTML = `<div class="fl-scrim" id="flScrim"></div>
+        <section class="filters glass" role="dialog" aria-label="Map filters">
+          <div class="fl-head"><h2>Filters</h2><button class="fl-link" id="flClear">Clear all</button><button class="btn primary fl-done" id="flDone">Done</button></div>
+          <div class="fl-body">${groups.map((g) => { const cs = chipCats.filter((c) => c.group === g), all = cs.every((c) => S.mapCats.includes(c.id));
+            return `<div class="fl-group"><div class="fl-gh"><span>${esc(GROUP_NAMES[g] || g)}</span><button class="fl-link" data-all="${g}">${all ? 'Hide all' : 'Show all'}</button></div>
+              ${cs.map((c) => `<label class="fl-row"><span class="fl-ic" style="--c:${color(c.id)}">${icon(c.id)}</span><span class="fl-name">${esc(c.name)}</span>
+                <span class="fl-count mono">${count(c)}</span><input type="checkbox" class="sw" data-cat="${c.id}"${S.mapCats.includes(c.id) ? ' checked' : ''}></label>`).join('')}</div>`; }).join('')}</div>
+        </section>`;
+      root.querySelector('.fl-body').scrollTop = keep;
+      const top = $('.map-top');
+      if (isDesktop() && top) Object.assign(root.querySelector('.filters').style, { left: top.getBoundingClientRect().left + 'px' });
+      const apply = () => { save(); drawChips(); drawPins(); };
+      const close = () => { root.innerHTML = ''; };
+      $('#flScrim').onclick = close; $('#flDone').onclick = close;
+      $('#flClear').onclick = () => { S.mapCats = []; apply(); openFilters(); };
+      root.querySelectorAll('input[data-cat]').forEach((i) => (i.onchange = () => {
+        S.mapCats = i.checked ? [...new Set([...S.mapCats, i.dataset.cat])] : S.mapCats.filter((c) => c !== i.dataset.cat); apply();
+        const g = chipCats.find((c) => c.id === i.dataset.cat).group, btn = root.querySelector(`[data-all="${g}"]`);
+        if (btn) btn.textContent = chipCats.filter((c) => c.group === g).every((c) => S.mapCats.includes(c.id)) ? 'Hide all' : 'Show all';
+      }));
+      root.querySelectorAll('[data-all]').forEach((b) => (b.onclick = () => {
+        const ids = chipCats.filter((c) => c.group === b.dataset.all).map((c) => c.id), all = ids.every((id) => S.mapCats.includes(id));
+        S.mapCats = all ? S.mapCats.filter((c) => !ids.includes(c)) : [...new Set([...S.mapCats, ...ids])]; apply(); openFilters();
       }));
     }
     // buildings come in map squares: load the squares on screen while their chip is on, drop the rest (data/more/)
@@ -424,38 +462,73 @@
       if (zoom == null) map.panTo(target, { duration: 0.4 }); else map.flyTo(target, z, { duration: 0.6 });
     }
 
+    // Pin card. Source text like "Shop at Hamlet. Can be entered. Real-life counterpart: X." becomes tags and a fact row.
+    const PHOTO_OF_PLACE = new Set(['shop', 'fast-food', 'street-food', 'gas-station', 'atm', 'bank', 'big-bank', 'payday-loans', 'ammu-nation',
+      'pay-n-spray', 'garage', 'purchasable-garage', 'safehouse', 'landmark', 'transport', 'building', 'structure', 'safe']);
+    function parseDesc(d) {
+      let text = d || '', real = '';
+      const tags = [];
+      text = text.replace(/Real-life counterpart:\s*(.+)$/s, (m, a) => { real = a.trim().replace(/\.$/, ''); return ''; });
+      if (/Not confirmed yet\.?/.test(text)) { tags.push('Unconfirmed'); text = text.replace(/Not confirmed yet\.?/, ''); }
+      if (/Can be entered\.?/.test(text)) { tags.push('Can go inside'); text = text.replace(/Can be entered\.?/, ''); }
+      const first = text.match(/^\s*([A-Z][A-Za-z ]{2,30}?) at [^.]+\.\s*/); // "Train station at Ambrosia." -> tag
+      if (first) { if (first[1] !== 'Building') tags.unshift(first[1]); text = text.replace(first[0], ''); }
+      return { text: text.trim(), tags, real };
+    }
+    const nearestUnfound = (p) => D.places.filter((q) => q.cat === p.cat && q.id !== p.id && !S.found[q.id])
+      .sort((a, b) => Math.hypot(a.x - p.x, (a.y - p.y) * AR) - Math.hypot(b.x - p.x, (b.y - p.y) * AR))[0];
     function openPlace(p) {
-      const f = !!S.found[p.id], isWp = S.waypoint === p.id;
+      const isWp = S.waypoint === p.id;
       const same = sheetRoot.querySelector(`.sheet[data-id="${p.id}"]`);
       if (same) return;
-      const where = [p.area && !(p.near || '').includes(p.area) ? p.area : '', p.near].filter(Boolean).join(' · ');
-      const help = p.desc || (D.catHelp || {})[p.cat];
+      const where = [p.area && !(p.near || '').includes(p.area) ? p.area : '', (p.near || '').replace(/^Near /, '')].filter(Boolean).join(' · ');
+      const info = parseDesc(p.desc);
+      const help = info.text || (!p.desc && (D.catHelp || {})[p.cat]) || '';
+      const empty = !help && !info.tags.length && !info.real;
       const img = p.img && p.img.startsWith('/') ? 'https://gta6tracker.org' + p.img : p.img;
-      const cap = p.imgSrc === 'gtadb' ? 'Photo: GTADB.ORG, CC BY 4.0 · may show a spot nearby' : 'Image: GTA Wiki';
-      const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
+      const cap = p.imgSrc === 'wiki' ? 'Image: GTA Wiki'
+        : PHOTO_OF_PLACE.has(p.cat) ? 'Photo: GTADB.ORG, CC BY 4.0' : 'Nearby photo, not the exact spot · GTADB.ORG, CC BY 4.0';
+      const tracked = ['collectible', 'money', 'story'].includes((D.cats.find((c) => c.id === p.cat) || {}).group);
+      const prog = () => `${foundCount(p.cat)} of ${placesOf(p.cat).length} found`;
+      const next = tracked && nearestUnfound(p);
+      const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5h5v5M9.5 2.5 3 9"/></svg></a>`;
       sheetRoot.innerHTML = `
         <section class="sheet glass" data-id="${p.id}" aria-label="${esc(p.name)}">
           <span class="grab"></span>
           <button class="icon-btn close" id="closeSheet" aria-label="Close"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4 4 14"/></svg></button>
           <div class="pc-body">
             <div class="pc-head">
-              <span class="kind">${esc(catName(p.cat))}${p.ch ? ' · Chapter ' + p.ch : ''}</span>
+              <div class="pc-kind"><span class="pc-ic" style="--c:${color(p.cat)}">${icon(p.cat)}</span>
+                <span class="kind">${esc(catName(p.cat))}${p.ch ? ' · Chapter ' + p.ch : ''}</span>
+                ${tracked ? `<span class="pc-prog mono" id="pcProg">${prog()}</span>` : ''}</div>
               <h2>${esc(p.name)}</h2>
-              ${where ? `<span class="pc-near">${esc(where)}</span>` : ''}
+              <div class="pc-meta">${where ? `<span class="pc-near"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 11s4-3.6 4-6.5a4 4 0 0 0-8 0C2 7.4 6 11 6 11z"/><circle cx="6" cy="4.6" r="1.4"/></svg>${esc(where)}</span>` : ''}
+                <span class="pc-found" id="pcFound"${S.found[p.id] ? '' : ' hidden'}>Found</span></div>
             </div>
-            ${img ? `<figure class="pc-img"><img src="${esc(img)}" alt="${esc(p.name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('figure').remove()"><figcaption>${esc(cap)}</figcaption></figure>` : ''}
-            <p class="pc-desc${help ? '' : ' none'}">${help ? esc(help) : 'No details for this spot yet. The source page below may have more.'}</p>
+            ${img ? `<figure class="pc-img"><button class="pc-zoom" id="pcZoom" aria-label="Open photo full screen"><img src="${esc(img)}" alt="${esc(p.name)}" decoding="async" referrerpolicy="no-referrer"
+              onload="this.classList.add('ok')" onerror="this.closest('figure').remove()"></button><figcaption>${esc(cap)}</figcaption></figure>` : ''}
+            ${info.tags.length ? `<div class="pc-tags">${info.tags.map((t) => `<span class="pc-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+            ${help || empty ? `<p class="pc-desc${help ? '' : ' none'}">${help ? esc(help) : 'No details for this spot yet. The source page may have more.'}</p>` : ''}
+            ${info.real ? `<div class="pc-fact"><span>Real-life spot</span><b>${esc(info.real)}</b></div>` : ''}
+            ${next ? `<button class="pc-next" id="pcNext"><span>Next nearest</span><b>${esc(next.name)}</b><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg></button>` : ''}
           </div>
-          <div class="pc-src"><span class="pc-src-h">Sources</span>
+          <div class="pc-src"><span>Source</span>
             ${p.slug ? link('https://gta6tracker.org/l/' + encodeURIComponent(p.slug), 'gta6tracker.org') : ''}
-            ${p.wiki ? link(p.wiki, 'GTA Wiki') : ''}
-            ${srcTag(p.sources)}<span class="muted">unverified</span></div>
+            ${p.wiki ? link(p.wiki, 'GTA Wiki') : ''}<span class="pc-unv">unverified</span></div>
           <div class="btn-row">
             <button class="btn secondary" id="setWp">${isWp ? 'Clear waypoint' : 'Set waypoint'}</button>
-            <button class="btn primary" id="markFound">${f ? 'Not found' : 'Mark found'}</button>
+            <button class="btn primary" id="markFound">${S.found[p.id] ? 'Not found' : 'Mark found'}</button>
           </div>
         </section>`;
       $('#closeSheet').onclick = () => (sheetRoot.innerHTML = '');
+      const z = $('#pcZoom');
+      if (z) z.onclick = () => {
+        document.body.insertAdjacentHTML('beforeend', `<div class="lightbox" role="dialog" aria-label="Photo"><img src="${esc(img)}" alt="${esc(p.name)}" referrerpolicy="no-referrer"><span>${esc(cap)}</span></div>`);
+        const lb = document.body.lastElementChild, shut = () => { lb.remove(); removeEventListener('keydown', esc_); };
+        const esc_ = (e) => { if (e.key === 'Escape') shut(); };
+        lb.onclick = shut; addEventListener('keydown', esc_);
+      };
+      if (next) $('#pcNext').onclick = () => { openPlace(next); placeInView(next, Math.max(2, map.getZoom())); };
       // update labels in place, no re-animation (fix 6)
       $('#setWp').onclick = (e) => {
         const was = S.waypoint === p.id; S.waypoint = was ? null : p.id; save(); drawPins();
@@ -464,6 +537,7 @@
       $('#markFound').onclick = (e) => {
         const was = !!S.found[p.id]; if (was) delete S.found[p.id]; else S.found[p.id] = Date.now(); save(); drawPins();
         e.currentTarget.textContent = was ? 'Mark found' : 'Not found';
+        $('#pcFound').hidden = was; if ($('#pcProg')) $('#pcProg').textContent = prog();
         toast(was ? 'Marked not found' : 'Found! ' + foundCount(p.cat) + '/' + placesOf(p.cat).length);
       };
     }

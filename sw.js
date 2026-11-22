@@ -1,6 +1,6 @@
 // Offline support. App files are cached on install; data and map library too.
 // Change VERSION (cache name) when shipping changes so phones pick up the new files.
-const VERSION = 'runsheet-cache-9';
+const VERSION = 'runsheet-cache-10';
 const CORE = [
   './', './index.html', './styles.css', './app.js', './route.js', './manifest.webmanifest',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
