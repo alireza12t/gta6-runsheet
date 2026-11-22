@@ -1,6 +1,6 @@
 // Offline support. App files are cached on install; data and map library too.
 // Change VERSION (cache name) when shipping changes so phones pick up the new files.
-const VERSION = 'runsheet-cache-10';
+const VERSION = 'runsheet-cache-11';
 const CORE = [
   './', './index.html', './styles.css', './app.js', './route.js', './manifest.webmanifest',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
@@ -32,6 +32,7 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then(keep)).catch(() => Response.error()));
     return;
   }
-  e.respondWith(fetch(req).then(keep).catch(() => caches.match(req, { ignoreSearch: true })
+  // no-cache: always check with the server (GitHub Pages lets browsers reuse files for 10 min otherwise); unchanged files cost a tiny 304
+  e.respondWith(fetch(req, { cache: 'no-cache' }).then(keep).catch(() => caches.match(req, { ignoreSearch: true })
     .then((hit) => hit || (req.mode === 'navigate' ? caches.match('./index.html') : Response.error()))));
 });
