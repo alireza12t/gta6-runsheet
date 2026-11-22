@@ -89,7 +89,7 @@
       <div class="row-ctl" style="min-height:0"><div><div class="label">Made by</div><div style="font-size:17px;font-weight:700">Alireza Toghiani</div></div>
         <a class="mono" href="https://github.com/alireza12t/gta6-runsheet" target="_blank" rel="noopener" style="font-size:13px;text-decoration:none">Source code</a></div>
       <div class="chips" style="flex-wrap:wrap">${SOCIALS.map(([n, u]) => `<a class="chip" href="${u}" target="_blank" rel="noopener" style="text-decoration:none;background:var(--fill)">${n}</a>`).join('')}</div>
-      <div class="muted" style="font-size:12px;line-height:1.45">Locations via <a href="https://gta6tracker.org/" target="_blank" rel="noopener">gta6tracker.org</a>, built on the <a href="https://gta.fandom.com/" target="_blank" rel="noopener">GTA Wiki</a> (CC BY-SA). Unverified. Map library <a href="https://leafletjs.com/" target="_blank" rel="noopener">Leaflet</a>. Unofficial fan project, not affiliated with Rockstar Games or Take-Two Interactive.</div>
+      <div class="muted" style="font-size:12px;line-height:1.45">Map art © Rockstar Games, via the <a href="https://gta.fandom.com/" target="_blank" rel="noopener">GTA Wiki</a>. Locations via <a href="https://gta6tracker.org/" target="_blank" rel="noopener">gta6tracker.org</a>, built on the <a href="https://gta.fandom.com/" target="_blank" rel="noopener">GTA Wiki</a> (CC BY-SA). Unverified. Map library <a href="https://leafletjs.com/" target="_blank" rel="noopener">Leaflet</a>. Unofficial fan project, not affiliated with Rockstar Games or Take-Two Interactive.</div>
     </section>`;
   }
 
@@ -228,9 +228,10 @@
       zoomSnap: 1, // whole zoom steps: tiles stay crisp with no seams
       preferCanvas: true, fadeAnimation: false, ...limits });
     m.attributionControl.setPrefix(false);
-    m.attributionControl.addAttribution('Map art: Rockstar Games via GTA Wiki · Locations via gta6tracker.org (unverified) · Borders approximate · Unofficial');
+    m.attributionControl.addAttribution('Map: Rockstar via GTA Wiki · Pins: gta6tracker.org · Unofficial');
     m.createPane('borders').style.zIndex = 380;
     m.createPane('labels').style.zIndex = 420;
+    m.createPane('clusters').style.zIndex = 410; // pin bubbles under place names
     m.getPane('borders').style.pointerEvents = m.getPane('labels').style.pointerEvents = 'none';
     L.tileLayer('tiles/{z}/{x}_{y}.webp', { tileSize: 256, minNativeZoom: T.minNativeZoom, maxNativeZoom: T.maxNativeZoom,
       minZoom: -2, maxZoom: 5, bounds, noWrap: true, keepBuffer: 3, className: 'base-tiles', attribution: '' }).addTo(m);
@@ -256,7 +257,12 @@
       }
     }
     m.on('zoomend moveend', syncLayers);
-    m.fitBounds(opts.bounds || L.latLngBounds(toLL(0.12, 0.08), toLL(0.9, 0.95)), opts.pad || {});
+    if (opts.bounds) m.fitBounds(opts.bounds, opts.pad || {});
+    else {
+      const island = L.latLngBounds(toLL(0.13, 0.13), toLL(0.9, 0.92));
+      m.options.zoomSnap = 0; const zf = m.getBoundsZoom(island, false, L.point(24, 24)); m.options.zoomSnap = 1;
+      m.setView(island.getCenter(), isDesktop() ? Math.round(zf) : Math.floor(zf));
+    }
     syncLayers();
     return m;
   }
@@ -311,13 +317,13 @@
         // invisible, larger tap area (fix 11)
         L.circleMarker(toLL(p.x, p.y), { bubblingMouseEvents: false, radius: 18, stroke: false, fillOpacity: 0, fillColor: '#000' })
           .bindTooltip(esc(p.name), { className: 'place-tip', direction: 'top', offset: [0, -10] })
-          .on('click', () => openPlace(p)).addTo(layer); };
+          .on('click', () => { openPlace(p); placeInView(p); }).addTo(layer); };
       // zoomed out: group close pins into numbered bubbles; zoomed in: every pin
       const groups = map.getZoom() >= 2 ? shown().map((p) => ({ pts: [p] })) : clusterPins(map, shown(), 64);
       groups.forEach((g) => {
         if (g.pts.length < 3) return g.pts.forEach(pin);
         const n = g.pts.length, sz = n < 10 ? 34 : n < 50 ? 38 : 44;
-        L.marker(g.ll, { keyboard: false, icon: L.divIcon({ className: '', iconSize: [sz, sz],
+        L.marker(g.ll, { pane: 'clusters', keyboard: false, icon: L.divIcon({ className: '', iconSize: [sz, sz],
           html: `<div class="cluster" style="width:${sz}px;height:${sz}px">${n}</div>` }) })
           .on('click', () => map.flyToBounds(L.latLngBounds(g.pts.map((p) => toLL(p.x, p.y))).pad(0.3), { duration: 0.5, maxZoom: 3 })).addTo(layer);
       });
@@ -331,6 +337,21 @@
       if (!map || !$('#visCount')) return; // map already gone (fix 12)
       const n = visible().length; $('#visCount').textContent = n ? `${Math.min(n, 60)} stops` : '';
       $('#routeView').disabled = !n; $('#routeView').style.opacity = n ? 1 : 0.6;
+    }
+
+    // centre a pin in the visible part of the map: above the card on phones, left of the panel on desktop
+    function placeInView(p, zoom) {
+      if (!map) return;
+      const sheet = $('.sheet'), size = map.getSize(), z = zoom ?? map.getZoom();
+      const top = isDesktop() ? 0 : 112, H = sheet && !isDesktop() ? sheet.offsetHeight : 0, Wp = sheet && isDesktop() ? sheet.offsetWidth + 32 : 0;
+      const pt = map.project(toLL(p.x, p.y), z);
+      if (zoom == null) { // just tapped: only move if the pin is covered
+        const c = map.latLngToContainerPoint(toLL(p.x, p.y));
+        const covered = isDesktop() ? c.x > size.x - Wp - 24 : (c.y > size.y - H - 24 || c.y < top);
+        if (!covered) return;
+      }
+      const target = map.unproject(pt.add([Wp / 2, (H - top) / 2]), z);
+      if (zoom == null) map.panTo(target, { duration: 0.4 }); else map.flyTo(target, z, { duration: 0.6 });
     }
 
     function openPlace(p) {
@@ -390,7 +411,7 @@
         const p = D.places.find((x) => x.id === b.dataset.id);
         if (!S.mapCats.includes(p.cat)) { S.mapCats.push(p.cat); save(); drawChips(); drawPins(); }
         results.hidden = true; document.body.classList.remove('searching'); q.value = ''; q.blur();
-        map.flyTo(toLL(p.x, p.y), 2.5, { duration: 0.6 }); openPlace(p);
+        openPlace(p); placeInView(p, Math.max(2, map.getZoom()));
       }));
     };
 
@@ -399,7 +420,7 @@
     $('#wp').onclick = () => {
       const w = S.waypoint && D.places.find((p) => p.id === S.waypoint);
       if (!w) return toast('No waypoint yet. Tap a pin to set one.');
-      map.flyTo(toLL(w.x, w.y), 2.5, { duration: 0.6 }); openPlace(w);
+      openPlace(w); placeInView(w, Math.max(2, map.getZoom()));
     };
     $('#routeView').onclick = () => {
       const pts = visible();
@@ -415,7 +436,7 @@
     q.onkeydown = (e) => { if (e.key === 'Escape') { q.value = ''; results.hidden = true; document.body.classList.remove('searching'); } };
 
     drawChips(); drawPins();
-    if (focusId) { const p = D.places.find((x) => x.id === focusId); if (p) { if (!S.mapCats.includes(p.cat)) { S.mapCats.push(p.cat); save(); drawChips(); drawPins(); } map.setView(toLL(p.x, p.y), 2.5); openPlace(p); } }
+    if (focusId) { const p = D.places.find((x) => x.id === focusId); if (p) { if (!S.mapCats.includes(p.cat)) { S.mapCats.push(p.cat); save(); drawChips(); drawPins(); } map.setView(toLL(p.x, p.y), 2); openPlace(p); placeInView(p, 2); } }
   }
 
   // ---------- RUN ----------

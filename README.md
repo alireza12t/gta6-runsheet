@@ -69,13 +69,13 @@ Built three days after launch, so the data is still filling in.
 
 - 43 of 91 story missions are listed so far, and 23 of them have a chapter.
 - Route lengths are shown as stops, not minutes, until real drive times are measured.
-- The map coastline is drawn from the location points. It isn't traced from the game, so it's approximate.
 
 Found a wrong spot or a missing collectible? [Open an issue](https://github.com/alireza12t/gta6-runsheet/issues).
 
 ## Credits
 
 - **Made by [Alireza Toghiani](https://alireza12t.github.io/)**: [GitHub](https://github.com/alireza12t) · [X](https://x.com/DevMvRick) · [YouTube](https://www.youtube.com/@DevMvRick) · [Instagram](https://www.instagram.com/devmvrick) · [LinkedIn](https://www.linkedin.com/in/alireza12t)
+- **Map art:** © Rockstar Games, via the [GTA Wiki](https://gta.fandom.com/). Borders and labels are drawn by us.
 - **Location data:** via [gta6tracker.org](https://gta6tracker.org/), which builds on the [GTA Wiki](https://gta.fandom.com/) (CC BY-SA). Unverified.
 - **Guide tips:** summarised from public guides, with a source count on each.
 - **Design:** inspired by the calm, departure-board approach of [Flighty](https://flighty.com/).
@@ -83,4 +83,4 @@ Found a wrong spot or a missing collectible? [Open an issue](https://github.com/
 
 ## Disclaimer
 
-Unofficial fan project. Not affiliated with, endorsed by or connected to Rockstar Games or Take-Two Interactive. Grand Theft Auto, GTA and related marks belong to their owners. No game art, logos or fonts are used.
+Unofficial fan project. Not affiliated with, endorsed by or connected to Rockstar Games or Take-Two Interactive. Grand Theft Auto, GTA, the map art and related marks belong to their owners. If you're a rights holder and want something removed, open an issue.

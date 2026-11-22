@@ -1,7 +1,9 @@
 // Route solver: nearest neighbour, then 2-opt to remove crossings.
 // Straight-line map distance only. It suggests an order, not a drive time.
 (function () {
-  const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  // y is stretched on the map image (3313 x 2560), so scale it to measure real distance
+  const AR = 3313 / 2560;
+  const d = (a, b) => Math.hypot(a.x - b.x, (a.y - b.y) * AR);
 
   function tour(points, start) {
     if (!points.length) return [];

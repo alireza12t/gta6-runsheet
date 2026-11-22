@@ -365,3 +365,10 @@ body:has(.sheet) .toast, body:has(.run-card) .toast { bottom: auto; top: calc(12
 .cluster { cursor: pointer; background: var(--glass-strong); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   border: 2px solid var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,.25); }
 @media (min-width: 900px) { .sheet .pc-body { max-height: none; overflow: visible; } } /* side panel scrolls as a whole */
+
+/* map follow-ups */
+.map-route { bottom: calc(104px + env(safe-area-inset-bottom)); }
+.leaflet-control-attribution { white-space: nowrap; max-width: calc(100vw - 24px); overflow: hidden; text-overflow: ellipsis; }
+/* hide hairline seams between tiles */
+.base-tiles img.leaflet-tile { width: 256.6px !important; height: 256.6px !important; mix-blend-mode: normal !important; }
+@media (min-width: 900px) { .map-route { bottom: 24px; } }
