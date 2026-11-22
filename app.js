@@ -282,7 +282,7 @@
       if (z >= 1) areaB.addTo(m); else areaB.remove();
       for (const l of labels) {
         const [lo, hi] = LABEL_ZOOM[l.k] || [9, 9];
-        const on = z >= lo && z <= hi && view.contains(l.ll);
+        const on = z >= lo && z <= hi && view.contains(l.ll) && !(l.k === 'poi' && S.mapCats.includes('landmark')); // landmark pins already name them
         if (on && !l.mk) l.mk = L.marker(l.ll, { pane: 'labels', interactive: false, keyboard: false,
           icon: L.divIcon({ className: 'map-label', html: `<span class="ml ml-${l.k}">${esc(l.t)}</span>`, iconSize: [0, 0] }) }).addTo(m);
         else if (!on && l.mk) { l.mk.remove(); l.mk = null; }
