@@ -44,17 +44,26 @@
   const srcTag = (n) => `<span class="tag src">${n} SOURCE${n === 1 ? '' : 'S'}</span>`;
 
   function toast(msg) {
+    document.querySelectorAll('.toast').forEach((t) => t.remove());
     const t = document.createElement('div');
-    t.className = 'toast glass'; t.textContent = msg; document.body.appendChild(t);
+    t.className = 'toast glass'; t.setAttribute('role', 'status'); t.textContent = msg; document.body.appendChild(t);
     setTimeout(() => t.remove(), 1800);
+  }
+  const isDesktop = () => innerWidth >= 900;
+  function killMap() { if (map) { map.off(); map.stop(); map.remove(); map = null; } }
+  // keep the selected chip visible after a redraw (fix 4)
+  function revealChip(row) {
+    const on = row && row.querySelector('[aria-pressed="true"]');
+    if (on) row.scrollLeft = on.offsetLeft - row.clientWidth / 2 + on.offsetWidth / 2;
   }
 
   // ---------- router ----------
   function route() {
     applyTheme();
     if (!D) return; // data still loading
-    if (map) { map.remove(); map = null; }
+    killMap();
     sheetRoot.innerHTML = '';
+    document.body.classList.remove('searching');
     view.className = '';
     const [name, arg] = (location.hash.slice(1) || 'plan').split('/');
     document.querySelectorAll('#tabs a').forEach((a) => a.setAttribute('aria-current', a.dataset.tab === name ? 'page' : 'false'));
@@ -63,6 +72,9 @@
     window.scrollTo(0, 0);
   }
   window.addEventListener('hashchange', route);
+  // switch between phone and desktop layouts when the window crosses 900px
+  let wasDesk = innerWidth >= 900;
+  addEventListener('resize', () => { const d = innerWidth >= 900; if (d !== wasDesk) { wasDesk = d; route(); } });
 
   // ---------- credits ----------
   const SOCIALS = [
@@ -134,6 +146,7 @@
         <button class="icon-btn" id="theme" aria-label="Theme: ${S.theme}. Tap to change" title="Theme: ${S.theme}"><span style="font-size:15px;font-weight:700">${themeIcon}</span></button></div>
       <h1 class="title" style="padding:0 4px">Plan your session</h1>
       ${installCard()}
+      <div class="plan-grid"><div class="col">
 
       <section class="card card-pad">
         <div class="row-ctl"><span class="label">Story progress</span>
@@ -148,8 +161,9 @@
         <span class="label">How long can you play?</span>
         <div class="seg" role="group" aria-label="Session length">${[20, 40, 60, 90].map((n) => `<button data-mins="${n}" aria-pressed="${S.mins === n}">${n}<small> min</small></button>`).join('')}</div>
         <span class="label" style="margin-top:4px">Collect tonight</span>
-        <div class="chips">${routeChips}</div>
+        <div class="chips" id="routeChips">${routeChips}</div>
       </section>
+      </div><div class="col">
 
       <section class="card" style="overflow:hidden">
         <div class="row-ctl" style="padding:6px 16px 0"><h2 class="label" style="margin:0">Live board</h2>
@@ -162,9 +176,11 @@
 
       <a class="btn primary" href="#run" id="build">Build my ${S.mins} min run</a>
       <p class="foot">Run size is a first guess (stops, not minutes) until we time real drives. Board entries come from guides; "src" shows how many agree.</p>
+      </div></div>
       ${creditsCard()}
     </div>`;
 
+    revealChip($('#routeChips'));
     bindInstall();
     $('#theme').onclick = () => { S.theme = { auto: 'light', light: 'dark', dark: 'auto' }[S.theme]; save(); route(); };
     $('#chDown').onclick = () => { S.chapter = Math.max(1, S.chapter - 1); save(); renderPlan(); };
@@ -193,14 +209,16 @@
     const path = Route.nearestSet(pool, from || startPoint(), n);
     path.forEach((p) => stops.push({ type: 'place', id: p.id, name: p.name, sub: catName(p.cat), x: p.x, y: p.y, cat: p.cat }));
     if (!placesOverride) stops.push({ type: 'task', id: 'cash', name: 'Store hold-up, then bank it', sub: 'Carried cash is lost if busted', tag: 'MONEY', status: 'money' });
-    S.run = { title: title || `Your ${S.mins} min run`, stops, idx: 0 };
+    S.run = { title: title || `Your ${S.mins} min run`, stops, idx: 0, doneN: 0, skipN: 0 }; showUpcoming = false;
     save();
   }
 
   // ---------- MAP (shared) ----------
   function makeMap(el, opts = {}) {
-    const m = L.map(el, { crs: L.CRS.Simple, zoomControl: false, attributionControl: true, minZoom: -1, maxZoom: 4, zoomSnap: 0.25,
-      preferCanvas: true, maxBounds: [[-1000, -50], [0, 1050]], maxBoundsViscosity: 0.8 });
+    // the Run map has no pan limit, so a southern route can sit above the card (fix 3)
+    const limits = opts.free ? {} : { maxBounds: [[-1000, -50], [0, 1050]], maxBoundsViscosity: 0.8 };
+    const m = L.map(el, { crs: L.CRS.Simple, zoomControl: false, attributionControl: true, minZoom: opts.free ? -3 : -1, maxZoom: 4, zoomSnap: 0.25,
+      preferCanvas: true, ...limits });
     m.attributionControl.setPrefix(false);
     m.attributionControl.addAttribution('Locations via gta6tracker.org (unverified) · Unofficial');
     const coords = (c) => L.latLng(-c[1] * 1000, c[0] * 1000);
@@ -221,7 +239,7 @@
       <div class="map-top">
         <div class="search glass"><svg viewBox="0 0 18 18" aria-hidden="true"><circle cx="7.5" cy="7.5" r="5.5"/><path d="m12 12 4 4"/></svg>
           <input id="q" type="search" placeholder="Search ${D.places.length} places" aria-label="Search the map" autocomplete="off">
-          <div class="results glass" id="results" hidden></div></div>
+          <div class="results" id="results" hidden></div></div>
         <div class="chips" id="mapChips"></div>
       </div>
       <div class="map-ctl glass">
@@ -250,8 +268,10 @@
       layer.clearLayers();
       shown().forEach((p) => {
         const f = !!S.found[p.id];
-        L.circleMarker(toLL(p.x, p.y), { bubblingMouseEvents: false, radius: 7, color: css('--pin-ring'), weight: 2, fillColor: color(p.cat), fillOpacity: f ? 0.35 : 1, opacity: f ? 0.5 : 1 })
-          .bindTooltip(esc(p.name), { className: 'place-tip', direction: 'top', offset: [0, -6] })
+        L.circleMarker(toLL(p.x, p.y), { interactive: false, radius: 7, color: css('--pin-ring'), weight: 2, fillColor: color(p.cat), fillOpacity: f ? 0.35 : 1, opacity: f ? 0.5 : 1 }).addTo(layer);
+        // invisible, larger tap area (fix 11)
+        L.circleMarker(toLL(p.x, p.y), { bubblingMouseEvents: false, radius: 18, stroke: false, fillOpacity: 0, fillColor: '#000' })
+          .bindTooltip(esc(p.name), { className: 'place-tip', direction: 'top', offset: [0, -10] })
           .on('click', () => openPlace(p)).addTo(layer);
       });
       if (wpRing) { wpRing.remove(); wpRing = null; }
@@ -259,19 +279,25 @@
       if (w) wpRing = L.circleMarker(toLL(w.x, w.y), { radius: 14, color: css('--accent'), weight: 3, fill: false, interactive: false }).addTo(map);
       updateVis();
     }
-    function visible() { const b = map.getBounds(); return shown().filter((p) => !S.found[p.id] && b.contains(toLL(p.x, p.y))); }
-    function updateVis() { const n = visible().length; $('#visCount').textContent = n ? `${n} stops` : ''; $('#routeView').disabled = !n; $('#routeView').style.opacity = n ? 1 : 0.6; }
+    function visible() { if (!map) return []; const b = map.getBounds(); return shown().filter((p) => !S.found[p.id] && b.contains(toLL(p.x, p.y))); }
+    function updateVis() {
+      if (!map || !$('#visCount')) return; // map already gone (fix 12)
+      const n = visible().length; $('#visCount').textContent = n ? `${Math.min(n, 60)} stops` : '';
+      $('#routeView').disabled = !n; $('#routeView').style.opacity = n ? 1 : 0.6;
+    }
 
     function openPlace(p) {
       const f = !!S.found[p.id], isWp = S.waypoint === p.id;
+      const same = sheetRoot.querySelector(`.sheet[data-id="${p.id}"]`);
+      if (same) return;
       sheetRoot.innerHTML = `
-        <section class="sheet glass" aria-label="${esc(p.name)}">
+        <section class="sheet glass" data-id="${p.id}" aria-label="${esc(p.name)}">
           <span class="grab"></span>
           <button class="icon-btn close" id="closeSheet" aria-label="Close"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4 4 14"/></svg></button>
-          <div style="display:flex;flex-direction:column;gap:4px;padding-right:40px">
+          <div style="display:flex;flex-direction:column;gap:4px;padding-right:48px">
             <span class="kind">${esc(catName(p.cat))}${p.ch ? ' · Chapter ' + p.ch : ''}</span>
             <h2>${esc(p.name)}</h2>
-            <span class="muted" style="font-size:14px">${esc(areaOf(p))}</span>
+            ${areaOf(p) ? `<span class="muted" style="font-size:14px">${esc(areaOf(p))}</span>` : ''}
           </div>
           <div style="display:flex;gap:8px;align-items:center">${srcTag(p.sources)}<span class="muted" style="font-size:12px">${esc(p.source)}</span></div>
           <div class="btn-row">
@@ -280,15 +306,24 @@
           </div>
         </section>`;
       $('#closeSheet').onclick = () => (sheetRoot.innerHTML = '');
-      $('#setWp').onclick = () => { S.waypoint = isWp ? null : p.id; save(); drawPins(); openPlace(p); toast(isWp ? 'Waypoint cleared' : 'Waypoint set'); };
-      $('#markFound').onclick = () => { if (f) delete S.found[p.id]; else S.found[p.id] = Date.now(); save(); drawPins(); openPlace(p); toast(f ? 'Marked not found' : 'Found! ' + foundCount(p.cat) + '/' + placesOf(p.cat).length); };
+      // update labels in place, no re-animation (fix 6)
+      $('#setWp').onclick = (e) => {
+        const was = S.waypoint === p.id; S.waypoint = was ? null : p.id; save(); drawPins();
+        e.currentTarget.textContent = was ? 'Set waypoint' : 'Clear waypoint'; toast(was ? 'Waypoint cleared' : 'Waypoint set');
+      };
+      $('#markFound').onclick = (e) => {
+        const was = !!S.found[p.id]; if (was) delete S.found[p.id]; else S.found[p.id] = Date.now(); save(); drawPins();
+        e.currentTarget.textContent = was ? 'Mark found' : 'Not found';
+        toast(was ? 'Marked not found' : 'Found! ' + foundCount(p.cat) + '/' + placesOf(p.cat).length);
+      };
     }
 
     // search
     const q = $('#q'), results = $('#results');
     q.oninput = () => {
       const s = q.value.trim().toLowerCase();
-      if (s.length < 2) { results.hidden = true; return; }
+      if (s.length < 2) { results.hidden = true; document.body.classList.remove('searching'); return; }
+      document.body.classList.add('searching');
       const hits = D.places.filter((p) => p.name.toLowerCase().includes(s)).slice(0, 12);
       results.innerHTML = hits.length ? hits.map((p) => `<button data-id="${p.id}"><span>${esc(p.name)}</span><span>${esc(catName(p.cat))}</span></button>`).join('')
         : '<button disabled><span>No matches</span><span></span></button>';
@@ -296,7 +331,7 @@
       results.querySelectorAll('[data-id]').forEach((b) => (b.onclick = () => {
         const p = D.places.find((x) => x.id === b.dataset.id);
         if (!S.mapCats.includes(p.cat)) { S.mapCats.push(p.cat); save(); drawChips(); drawPins(); }
-        results.hidden = true; q.value = ''; q.blur();
+        results.hidden = true; document.body.classList.remove('searching'); q.value = ''; q.blur();
         map.flyTo(toLL(p.x, p.y), 2.5, { duration: 0.6 }); openPlace(p);
       }));
     };
@@ -317,66 +352,84 @@
       location.hash = 'run';
     };
     map.on('moveend', updateVis);
-    map.on('click', () => { sheetRoot.innerHTML = ''; results.hidden = true; });
+    map.on('click', () => { sheetRoot.innerHTML = ''; results.hidden = true; document.body.classList.remove('searching'); });
+    q.onkeydown = (e) => { if (e.key === 'Escape') { q.value = ''; results.hidden = true; document.body.classList.remove('searching'); } };
 
     drawChips(); drawPins();
     if (focusId) { const p = D.places.find((x) => x.id === focusId); if (p) { if (!S.mapCats.includes(p.cat)) { S.mapCats.push(p.cat); save(); drawChips(); drawPins(); } map.setView(toLL(p.x, p.y), 2.5); openPlace(p); } }
   }
 
   // ---------- RUN ----------
+  let showUpcoming = false;
   function renderRun() {
     if (!S.run || !S.run.stops.length) { location.hash = 'plan'; return; }
-    if (map) { map.remove(); map = null; }
+    killMap();
     view.className = 'full';
     const R = S.run, total = R.stops.length, idx = Math.min(R.idx, total);
+    R.doneN = R.doneN || 0; R.skipN = R.skipN || 0;
     const placeStops = R.stops.filter((s) => s.type === 'place');
     view.innerHTML = `<div class="run-map" id="runMap" aria-label="Route map"></div>
       <a class="back glass" href="#plan" aria-label="Back to Plan"><svg viewBox="0 0 10 16" aria-hidden="true"><path d="M8 2 2 8l6 6"/></svg></a>`;
+
+    // 1) draw the card first, so the map can fit the route around it (fix 3)
+    if (idx >= total) {
+      const sk = R.skipN;
+      sheetRoot.innerHTML = `<section class="run-card glass"><span class="grab"></span>
+        <span class="tag ready">RUN COMPLETE</span>
+        <div class="next"><h2>${R.doneN} done${sk ? `, ${sk} skipped` : ''}.</h2>
+          <div class="muted" style="font-size:14px;margin-top:4px">${R.doneN ? 'Nice work. Your checklist is updated.' : 'Nothing ticked this time.'}</div></div>
+        <div class="btn-row"><a class="btn secondary" href="#guide">See progress</a><a class="btn primary" href="#plan" id="again">Plan another</a></div></section>`;
+      $('#again').onclick = () => { S.run = null; save(); };
+    } else {
+      const cur = R.stops[idx];
+      const pct = Math.round((idx / total) * 100);
+      const upcoming = R.stops.slice(idx + 1, idx + 5);
+      const compact = !isDesktop(); // phones: keep the card short so the route stays visible
+      const list = upcoming.length ? `<ul class="list" style="margin-top:6px">${upcoming.map((s, i) => `
+          <li><div class="check-row" style="grid-template-columns:28px 1fr auto;padding-left:0"><span class="mono muted">${idx + i + 2}</span>
+            <span class="name" style="font-size:15px">${esc(s.name)}</span>${s.type === 'task' ? `<span class="tag ${s.status}">${esc(s.tag)}</span>` : `<span class="muted" style="font-size:12px">${esc(s.sub)}</span>`}</div></li>`).join('')}</ul>` : '';
+      sheetRoot.innerHTML = `
+      <section class="run-card glass" aria-label="Run in progress">
+        <span class="grab"></span>
+        <div class="run-head"><span class="label run-title">${esc(R.title)}</span><span class="mono label">${idx + 1}/${total}</span></div>
+        <div class="run-line"><span class="num">${idx}</span><span class="track"><i style="width:${pct}%"></i><b style="left:${pct}%"></b></span><span class="num muted">${total}</span></div>
+        <div class="run-ends"><span>${esc(short(R.stops[0].name))}</span><span>${total - idx} to go</span><span>${esc(short(R.stops[total - 1].name))}</span></div>
+        <div class="next"><span class="label" style="color:var(--accent-text)">${cur.type === 'place' ? 'Next: ' + esc(cur.sub) : esc(cur.tag)}</span><h2>${esc(cur.name)}</h2>
+          <div class="muted next-sub">${cur.type === 'task' ? esc(cur.sub || '') : ''}</div></div>
+        <div class="btn-row"><button class="btn secondary" id="skip">Skip</button><button class="btn primary" id="doneNext">Done, next</button></div>
+        ${list ? (compact && !showUpcoming
+          ? `<button class="link-btn" id="moreUp" style="align-self:flex-start">Coming up (${upcoming.length})</button>`
+          : `<div><span class="label">Coming up</span>${list}</div>`) : ''}
+      </section>`;
+      const step = (done) => {
+        if (done) { if (cur.type === 'place') S.found[cur.id] = Date.now(); else if (cur.id !== 'cash' && !cur.repeatable) S.done[cur.id] = Date.now(); R.doneN++; }
+        else R.skipN++;
+        R.idx++; save(); renderRun();
+      };
+      $('#skip').onclick = () => step(false);
+      $('#doneNext').onclick = () => step(true);
+      const more = $('#moreUp'); if (more) more.onclick = () => { showUpcoming = true; renderRun(); };
+    }
+
+    // 2) map, fitted into the space the card leaves free
     const pts = placeStops.map((s) => toLL(s.x, s.y));
-    // fit the route into the space above the bottom card
-    map = makeMap($('#runMap'), pts.length ? { bounds: L.latLngBounds(pts),
-      pad: { paddingTopLeft: [40, 80], paddingBottomRight: [40, Math.round(innerHeight * 0.62)], maxZoom: 3 } } : {});
+    const card = $('.run-card');
+    const pad = isDesktop()
+      ? { paddingTopLeft: [60, 60], paddingBottomRight: [(card ? card.offsetWidth : 380) + 60, 60], maxZoom: 3 }
+      : { paddingTopLeft: [36, 76], paddingBottomRight: [36, (card ? card.offsetHeight : innerHeight * 0.6) + 24], maxZoom: 3 };
+    map = makeMap($('#runMap'), pts.length ? { free: true, bounds: L.latLngBounds(pts), pad } : {});
     if (pts.length) {
       const doneIdx = placeStops.filter((s) => R.stops.indexOf(s) < idx).length;
+      const curIsPlace = idx < total && R.stops[idx].type === 'place';
       if (doneIdx > 0) L.polyline(pts.slice(0, doneIdx + 1), { color: css('--text-3'), weight: 4, opacity: 0.9 }).addTo(map);
       L.polyline(pts.slice(Math.max(0, doneIdx)), { color: css('--card'), weight: 8, opacity: 1 }).addTo(map);
       L.polyline(pts.slice(Math.max(0, doneIdx)), { color: css('--accent'), weight: 4 }).addTo(map);
       placeStops.forEach((s, i) => {
-        const past = i < doneIdx, cur = i === doneIdx && idx < total;
+        const past = i < doneIdx, cur = curIsPlace && i === doneIdx;
         L.circleMarker(pts[i], { radius: cur ? 8 : 5, color: cur ? css('--card') : (past ? css('--text-3') : css('--accent')), weight: cur ? 3 : 2,
           fillColor: cur ? css('--accent') : css('--card'), fillOpacity: 1 }).bindTooltip(esc(s.name), { className: 'place-tip' }).addTo(map);
       });
     }
-
-    if (idx >= total) {
-      sheetRoot.innerHTML = `<section class="run-card glass"><span class="grab" style="align-self:center;width:36px;height:5px;border-radius:3px;background:var(--fill-2)"></span>
-        <span class="tag ready">RUN COMPLETE</span><div class="next"><h2>Nice. ${total} stops done.</h2></div>
-        <div class="btn-row"><a class="btn secondary" href="#guide">See progress</a><a class="btn primary" href="#plan" id="again">Plan another</a></div></section>`;
-      $('#again').onclick = () => { S.run = null; save(); };
-      return;
-    }
-    const cur = R.stops[idx];
-    const first = R.stops[0].name, last = R.stops[total - 1].name;
-    const pct = Math.round((idx / total) * 100);
-    const upcoming = R.stops.slice(idx + 1, idx + 5);
-    sheetRoot.innerHTML = `
-      <section class="run-card glass" aria-label="Run in progress">
-        <span style="align-self:center;width:36px;height:5px;border-radius:3px;background:var(--fill-2)"></span>
-        <div class="row-ctl" style="min-height:0"><span class="label">${esc(R.title)} · stop ${idx + 1} of ${total}</span><span class="tag live">IN PROGRESS</span></div>
-        <div class="run-line"><span class="num">${idx}</span><span class="track"><i style="width:${pct}%"></i><b style="left:${pct}%"></b></span><span class="num muted">${total}</span></div>
-        <div class="run-ends"><span>${esc(short(first))}</span><span>${total - idx} to go</span><span>${esc(short(last))}</span></div>
-        <div class="next"><span class="label" style="color:var(--accent-text)">${cur.type === 'place' ? 'Next: ' + esc(cur.sub) : esc(cur.tag)}</span><h2>${esc(cur.name)}</h2>
-          ${cur.type === 'task' ? `<div class="muted" style="font-size:14px;margin-top:4px">${esc(cur.sub || '')}</div>` : ''}</div>
-        <div class="btn-row"><button class="btn secondary" id="skip">Skip</button><button class="btn primary" id="doneNext">Done, next</button></div>
-        ${upcoming.length ? `<div><span class="label">Coming up</span><ul class="list" style="margin-top:6px">${upcoming.map((s, i) => `
-          <li><div class="check-row" style="grid-template-columns:28px 1fr auto;padding-left:0"><span class="mono muted">${idx + i + 2}</span>
-            <span class="name" style="font-size:15px">${esc(s.name)}</span>${s.type === 'task' ? `<span class="tag ${s.status}">${esc(s.tag)}</span>` : `<span class="muted" style="font-size:12px">${esc(s.sub)}</span>`}</div></li>`).join('')}</ul></div>` : ''}
-      </section>`;
-    $('#skip').onclick = () => { R.idx++; save(); renderRun(); };
-    $('#doneNext').onclick = () => {
-      if (cur.type === 'place') S.found[cur.id] = Date.now(); else if (cur.id !== 'cash' && !cur.repeatable) S.done[cur.id] = Date.now();
-      R.idx++; save(); if (map) { map.remove(); map = null; } renderRun();
-    };
   }
   const short = (s) => s.replace(/ Stunt Jump$/, '').replace(/ Stunt$/, '');
 
@@ -388,7 +441,7 @@
     const tabs = [['collect', 'Collect'], ['missions', 'Missions'], ['money', 'Money'], ['cheats', 'Cheats']];
     let body = '';
     if (tab === 'collect') {
-      body = `<ul class="list card">${cc.map((c) => { const f = foundCount(c.id); return `
+      body = `<ul class="list card two-col">${cc.map((c) => { const f = foundCount(c.id); return `
         <li><a class="item" href="#checklist/${c.id}" style="color:inherit;text-decoration:none">
           <span class="name">${esc(c.name)}</span><span class="bar ${f === c.count ? 'done' : ''}"><i style="width:${Math.round(f / c.count * 100)}%"></i></span>
           <span class="count">${f}<small>/${c.count}</small></span><svg class="chev" viewBox="0 0 8 14" aria-hidden="true"><path d="m1 1 6 6-6 6"/></svg></a></li>`; }).join('')}</ul>`;
@@ -411,7 +464,7 @@
       body = `<h3 class="section-h">Cheats</h3><ul class="list card">${D.guide.cheats.map((c) => `<li><div class="check-row" style="grid-template-columns:1fr auto"><span class="name">${esc(c.name)}</span><span class="sub">${esc(c.unlock || '')}</span></div></li>`).join('')}</ul>
         <h3 class="section-h">Trophies</h3><ul class="list card">${D.guide.trophies.map((t) => checkRow(t.id, t.name, t.how || '')).join('')}</ul>`;
     }
-    view.innerHTML = `<div class="page">
+    view.innerHTML = `<div class="page wide">
       <h1 class="title" style="padding:0 4px">Guide</h1>
       <section class="card card-pad"><div class="row-ctl" style="min-height:0"><span class="label">Collectibles found</span>
         <span class="big-count">${got}<small> / ${total}</small></span></div><span class="bar"><i style="width:${Math.round(got / total * 100)}%"></i></span></section>
@@ -437,11 +490,11 @@
     cat = cat && cats.find((c) => c.id === cat) ? cat : cats[0].id;
     const items = placesOf(cat).slice().sort((a, b) => (!!S.found[a.id] - !!S.found[b.id]) || a.name.localeCompare(b.name));
     const f = foundCount(cat), n = items.length;
-    view.innerHTML = `<div class="page">
+    view.innerHTML = `<div class="page wide">
       <h1 class="title" style="padding:0 4px">Checklist</h1>
-      <div class="chips">${cats.map((c) => `<button class="chip" data-cat="${c.id}" aria-pressed="${c.id === cat}"><span class="dot" style="background:${color(c.id)}"></span>${esc(c.name)}</button>`).join('')}</div>
+      <div class="chips" id="checkChips">${cats.map((c) => `<button class="chip" data-cat="${c.id}" aria-pressed="${c.id === cat}"><span class="dot" style="background:${color(c.id)}"></span>${esc(c.name)}</button>`).join('')}</div>
       <section class="card card-pad"><div class="row-ctl" style="min-height:0"><span class="label">${esc(catName(cat))}</span>
-        <span class="big-count">${f}<small> / ${n}</small></span></div><span class="bar ${f === n ? 'done' : ''}"><i style="width:${Math.round(f / n * 100)}%"></i></span>
+        <span class="big-count" id="ckCount">${f}<small> / ${n}</small></span></div><span class="bar ${f === n ? 'done' : ''}" id="ckBar"><i style="width:${Math.round(f / n * 100)}%"></i></span>
         <button class="btn secondary" id="routeLeft" ${f === n ? 'disabled' : ''}>Route the ${n - f} left</button></section>
       <ul class="list card">${items.map((p) => { const on = !!S.found[p.id]; return `
         <li><div class="check-row ${on ? 'done' : ''}"><button class="check" data-found="${p.id}" aria-pressed="${on}" aria-label="${esc(p.name)} found"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="m2 7 3.5 3.5L12 3"/></svg></button>
@@ -449,8 +502,18 @@
           <a class="link-btn" href="#map/${p.id}" style="text-decoration:none">Map</a></div></li>`; }).join('')}</ul>
     </div>`;
     view.querySelectorAll('[data-cat]').forEach((b) => (b.onclick = () => (location.hash = 'checklist/' + b.dataset.cat)));
-    view.querySelectorAll('[data-found]').forEach((b) => (b.onclick = () => { const id = b.dataset.found; if (S.found[id]) delete S.found[id]; else S.found[id] = Date.now(); save(); renderChecklist(cat); }));
-    $('#routeLeft').onclick = () => { buildRun(items.filter((p) => !S.found[p.id]), `${catName(cat)}, ${n - f} left`); location.hash = 'run'; };
+    revealChip($('#checkChips'));
+    // tick in place; rows only re-sort next time the list opens (fix 9)
+    view.querySelectorAll('[data-found]').forEach((b) => (b.onclick = () => {
+      const id = b.dataset.found, on = !S.found[id];
+      if (on) S.found[id] = Date.now(); else delete S.found[id]; save();
+      b.setAttribute('aria-pressed', on); b.closest('.check-row').classList.toggle('done', on);
+      const nf = foundCount(cat);
+      $('#ckCount').innerHTML = `${nf}<small> / ${n}</small>`;
+      $('#ckBar').classList.toggle('done', nf === n); $('#ckBar i').style.width = Math.round(nf / n * 100) + '%';
+      const rl = $('#routeLeft'); rl.textContent = `Route the ${n - nf} left`; rl.disabled = nf === n;
+    }));
+    $('#routeLeft').onclick = () => { const left = items.filter((p) => !S.found[p.id]); buildRun(left, `${catName(cat)}, ${left.length} left`); location.hash = 'run'; };
   }
 
   // ---------- boot ----------
