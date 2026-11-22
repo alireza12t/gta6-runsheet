@@ -37,8 +37,10 @@
   const placesOf = (cat) => D.places.filter((p) => p.cat === cat);
   const foundCount = (cat) => placesOf(cat).filter((p) => S.found[p.id]).length;
   const collectCats = () => D.cats.filter((c) => c.group === 'collectible');
-  const toLL = (x, y) => [-y * 1000, x * 1000];
-  const fromLL = (ll) => ({ x: ll.lng / 1000, y: -ll.lat / 1000 });
+  // Positions are shares of the map image (x across, y down). The image is taller than wide, so y is scaled by AR.
+  const AR = 3313 / 2560;
+  const toLL = (x, y) => [-y * 1000 * AR, x * 1000];
+  const fromLL = (ll) => ({ x: ll.lng / 1000, y: -ll.lat / 1000 / AR });
   const nearestRegion = (p) => D.regions.reduce((b, r) => (Math.hypot(r.x - p.x, r.y - p.y) < Math.hypot(b.x - p.x, b.y - p.y) ? r : b));
   const areaOf = (p) => p.area || '';
   const srcTag = (n) => `<span class="tag src">${n} SOURCE${n === 1 ? '' : 'S'}</span>`;
@@ -214,22 +216,60 @@
   }
 
   // ---------- MAP (shared) ----------
+  // Base map: the game's map art cut into tiles (tools/build_tiles.py), with our own borders and labels on top.
+  // Labels and borders only appear from a set zoom, and labels are only added while on screen, so panning stays smooth.
+  const LABEL_ZOOM = { sea: [0, 9], region: [-2, 1], area: [1, 9], water: [1, 9], town: [2, 9], peak: [2, 9], district: [2, 9], poi: [3, 9] };
   function makeMap(el, opts = {}) {
+    const B = D.basemap, T = B.tiles;
+    const bounds = L.latLngBounds(T.bounds);
     // the Run map has no pan limit, so a southern route can sit above the card (fix 3)
-    const limits = opts.free ? {} : { maxBounds: [[-1000, -50], [0, 1050]], maxBoundsViscosity: 0.8 };
-    const m = L.map(el, { crs: L.CRS.Simple, zoomControl: false, attributionControl: true, minZoom: opts.free ? -3 : -1, maxZoom: 4, zoomSnap: 0.25,
-      preferCanvas: true, ...limits });
+    const limits = opts.free ? {} : { maxBounds: bounds.pad(0.1), maxBoundsViscosity: 0.8 };
+    const m = L.map(el, { crs: L.CRS.Simple, zoomControl: false, attributionControl: true, minZoom: opts.free ? -2 : -1, maxZoom: 3,
+      zoomSnap: 1, // whole zoom steps: tiles stay crisp with no seams
+      preferCanvas: true, fadeAnimation: false, ...limits });
     m.attributionControl.setPrefix(false);
-    m.attributionControl.addAttribution('Locations via gta6tracker.org (unverified) · Unofficial');
-    const coords = (c) => L.latLng(-c[1] * 1000, c[0] * 1000);
-    L.geoJSON(D.outline, { coordsToLatLng: coords, interactive: false,
-      style: { color: css('--shallow'), weight: 18, fillColor: css('--land'), fillOpacity: 1, opacity: 1, lineJoin: 'round' } }).addTo(m);
-    L.geoJSON(D.outline, { coordsToLatLng: coords, interactive: false,
-      style: { color: css('--land'), weight: 1, fillOpacity: 0, opacity: 1 } }).addTo(m);
-    D.regions.forEach((r) => L.marker(toLL(r.x, r.y), { interactive: false,
-      icon: L.divIcon({ className: '', html: `<span class="region-label">${esc(r.name)}</span>`, iconSize: [0, 0] }) }).addTo(m));
-    m.fitBounds(opts.bounds || [toLL(0.42, 0.35), toLL(0.88, 0.9)], opts.pad || {});
+    m.attributionControl.addAttribution('Map art: Rockstar Games via GTA Wiki · Locations via gta6tracker.org (unverified) · Borders approximate · Unofficial');
+    m.createPane('borders').style.zIndex = 380;
+    m.createPane('labels').style.zIndex = 420;
+    m.getPane('borders').style.pointerEvents = m.getPane('labels').style.pointerEvents = 'none';
+    L.tileLayer('tiles/{z}/{x}_{y}.webp', { tileSize: 256, minNativeZoom: T.minNativeZoom, maxNativeZoom: T.maxNativeZoom,
+      minZoom: -2, maxZoom: 5, bounds, noWrap: true, keepBuffer: 3, className: 'base-tiles', attribution: '' }).addTo(m);
+
+    // borders between areas (dashed), drawn once on one canvas; districts get names only
+    const ren = L.canvas({ pane: 'borders', padding: 0.3 });
+    const coords = (c) => L.latLng(toLL(c[0], c[1]));
+    const mkBorders = (k, style) => L.geoJSON({ type: 'FeatureCollection', features: B.features.filter((f) => f.properties.k === k) },
+      { coordsToLatLng: coords, interactive: false, renderer: ren, style: () => Object.assign({ fill: false, renderer: ren }, style) });
+    const areaB = mkBorders('area', { color: css('--map-border'), weight: 1.4, opacity: 0.85, dashArray: '5 5' });
+
+    // labels: added and removed by zoom and view
+    const labels = B.labels.map((l) => ({ ...l, ll: L.latLng(toLL(l.x, l.y)), mk: null }));
+    function syncLayers() {
+      const z = m.getZoom(), view = m.getBounds().pad(0.15);
+      if (z >= 1) areaB.addTo(m); else areaB.remove();
+      for (const l of labels) {
+        const [lo, hi] = LABEL_ZOOM[l.k] || [9, 9];
+        const on = z >= lo && z <= hi && view.contains(l.ll);
+        if (on && !l.mk) l.mk = L.marker(l.ll, { pane: 'labels', interactive: false, keyboard: false,
+          icon: L.divIcon({ className: 'map-label', html: `<span class="ml ml-${l.k}">${esc(l.t)}</span>`, iconSize: [0, 0] }) }).addTo(m);
+        else if (!on && l.mk) { l.mk.remove(); l.mk = null; }
+      }
+    }
+    m.on('zoomend moveend', syncLayers);
+    m.fitBounds(opts.bounds || L.latLngBounds(toLL(0.12, 0.08), toLL(0.9, 0.95)), opts.pad || {});
+    syncLayers();
     return m;
+  }
+
+  // Groups nearby pins into one numbered bubble when zoomed out. Returns [{pts, ll}] in screen-grid cells.
+  function clusterPins(m, pts, cell) {
+    const cells = new Map();
+    for (const p of pts) {
+      const q = m.project(toLL(p.x, p.y), Math.round(m.getZoom()));
+      const key = Math.floor(q.x / cell) + ':' + Math.floor(q.y / cell);
+      (cells.get(key) || cells.set(key, []).get(key)).push(p);
+    }
+    return [...cells.values()].map((g) => ({ pts: g, ll: L.latLng(toLL(g.reduce((a, p) => a + p.x, 0) / g.length, g.reduce((a, p) => a + p.y, 0) / g.length)) }));
   }
 
   function renderMap(focusId) {
@@ -266,13 +306,20 @@
     const shown = () => D.places.filter((p) => S.mapCats.includes(p.cat) && !(S.hideFound && S.found[p.id]));
     function drawPins() {
       layer.clearLayers();
-      shown().forEach((p) => {
-        const f = !!S.found[p.id];
+      const pin = (p) => { const f = !!S.found[p.id];
         L.circleMarker(toLL(p.x, p.y), { interactive: false, radius: 7, color: css('--pin-ring'), weight: 2, fillColor: color(p.cat), fillOpacity: f ? 0.35 : 1, opacity: f ? 0.5 : 1 }).addTo(layer);
         // invisible, larger tap area (fix 11)
         L.circleMarker(toLL(p.x, p.y), { bubblingMouseEvents: false, radius: 18, stroke: false, fillOpacity: 0, fillColor: '#000' })
           .bindTooltip(esc(p.name), { className: 'place-tip', direction: 'top', offset: [0, -10] })
-          .on('click', () => openPlace(p)).addTo(layer);
+          .on('click', () => openPlace(p)).addTo(layer); };
+      // zoomed out: group close pins into numbered bubbles; zoomed in: every pin
+      const groups = map.getZoom() >= 2 ? shown().map((p) => ({ pts: [p] })) : clusterPins(map, shown(), 64);
+      groups.forEach((g) => {
+        if (g.pts.length < 3) return g.pts.forEach(pin);
+        const n = g.pts.length, sz = n < 10 ? 34 : n < 50 ? 38 : 44;
+        L.marker(g.ll, { keyboard: false, icon: L.divIcon({ className: '', iconSize: [sz, sz],
+          html: `<div class="cluster" style="width:${sz}px;height:${sz}px">${n}</div>` }) })
+          .on('click', () => map.flyToBounds(L.latLngBounds(g.pts.map((p) => toLL(p.x, p.y))).pad(0.3), { duration: 0.5, maxZoom: 3 })).addTo(layer);
       });
       if (wpRing) { wpRing.remove(); wpRing = null; }
       const w = S.waypoint && D.places.find((p) => p.id === S.waypoint);
@@ -290,16 +337,27 @@
       const f = !!S.found[p.id], isWp = S.waypoint === p.id;
       const same = sheetRoot.querySelector(`.sheet[data-id="${p.id}"]`);
       if (same) return;
+      const where = [p.area && !(p.near || '').includes(p.area) ? p.area : '', p.near].filter(Boolean).join(' · ');
+      const help = p.desc || (D.catHelp || {})[p.cat];
+      const cap = p.imgSrc === 'gtadb' ? 'Photo: GTADB.ORG, CC BY 4.0 · may show a spot nearby' : 'Image: GTA Wiki';
+      const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
       sheetRoot.innerHTML = `
         <section class="sheet glass" data-id="${p.id}" aria-label="${esc(p.name)}">
           <span class="grab"></span>
           <button class="icon-btn close" id="closeSheet" aria-label="Close"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4 4 14"/></svg></button>
-          <div style="display:flex;flex-direction:column;gap:4px;padding-right:48px">
-            <span class="kind">${esc(catName(p.cat))}${p.ch ? ' · Chapter ' + p.ch : ''}</span>
-            <h2>${esc(p.name)}</h2>
-            ${areaOf(p) ? `<span class="muted" style="font-size:14px">${esc(areaOf(p))}</span>` : ''}
+          <div class="pc-body">
+            <div class="pc-head">
+              <span class="kind">${esc(catName(p.cat))}${p.ch ? ' · Chapter ' + p.ch : ''}</span>
+              <h2>${esc(p.name)}</h2>
+              ${where ? `<span class="pc-near">${esc(where)}</span>` : ''}
+            </div>
+            ${p.img ? `<figure class="pc-img"><img src="${esc(p.img)}" alt="${esc(p.name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('figure').remove()"><figcaption>${esc(cap)}</figcaption></figure>` : ''}
+            <p class="pc-desc${help ? '' : ' none'}">${help ? esc(help) : 'No details for this spot yet. The source page below may have more.'}</p>
           </div>
-          <div style="display:flex;gap:8px;align-items:center">${srcTag(p.sources)}<span class="muted" style="font-size:12px">${esc(p.source)}</span></div>
+          <div class="pc-src"><span class="pc-src-h">Sources</span>
+            ${p.slug ? link('https://gta6tracker.org/l/' + encodeURIComponent(p.slug), 'gta6tracker.org') : ''}
+            ${p.wiki ? link(p.wiki, 'GTA Wiki') : ''}
+            ${srcTag(p.sources)}<span class="muted">unverified</span></div>
           <div class="btn-row">
             <button class="btn secondary" id="setWp">${isWp ? 'Clear waypoint' : 'Set waypoint'}</button>
             <button class="btn primary" id="markFound">${f ? 'Not found' : 'Mark found'}</button>
@@ -352,6 +410,7 @@
       location.hash = 'run';
     };
     map.on('moveend', updateVis);
+    map.on('zoomend', drawPins);
     map.on('click', () => { sheetRoot.innerHTML = ''; results.hidden = true; document.body.classList.remove('searching'); });
     q.onkeydown = (e) => { if (e.key === 'Escape') { q.value = ''; results.hidden = true; document.body.classList.remove('searching'); } };
 
@@ -517,7 +576,7 @@
   }
 
   // ---------- boot ----------
-  Promise.all(['places', 'guide', 'tonight', 'money', 'outline'].map((n) => fetch(`data/${n}.json`).then((r) => r.json())))
-    .then(([p, guide, tonight, money, outline]) => { D = { ...p, guide, tonight, money, outline }; route(); })
+  Promise.all(['places', 'guide', 'tonight', 'money', 'basemap'].map((n) => fetch(`data/${n}.json`).then((r) => r.json())))
+    .then(([p, guide, tonight, money, basemap]) => { D = { ...p, guide, tonight, money, basemap }; route(); })
     .catch((e) => { view.innerHTML = `<div class="page"><h1 class="title">Couldn't load data</h1><p class="muted">${esc(e.message)}</p></div>`; });
 })();
