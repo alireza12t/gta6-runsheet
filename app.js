@@ -64,6 +64,27 @@
       ? `<path d="${v}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`
       : `<path d="${v.f}" fill="currentColor"/>`}</symbol>`).join('') + '</svg>');
   const icon = (cat) => `<svg class="pin-ic" aria-hidden="true"><use href="#ic-${CAT_ICON[cat] || 'star'}"/></svg>`;
+  const GROUP_LABEL = { collectible: 'Collectibles', money: 'Money', story: 'Story', services: 'Services', shops: 'Shops & food', places: 'Places' };
+  const CHEV = '<svg class="pk-chev" viewBox="0 0 8 14" aria-hidden="true"><path d="m1 1 6 6-6 6"/></svg>';
+  // One button that shows the chosen category; it opens a grouped list (replaces long sideways chip rows).
+  const pickBtn = (id, cat, meta) => `<button class="pick-btn" id="${id}" aria-haspopup="dialog"><span class="fl-ic" style="--c:${color(cat)}">${icon(cat)}</span>
+    <span class="pk-name">${esc(catName(cat))}</span><span class="pk-meta mono">${esc(meta)}</span>${CHEV}</button>`;
+  function openPicker({ title, cats, selected, meta, onPick }) {
+    const root = $('#filters-root') || document.body.appendChild(Object.assign(document.createElement('div'), { id: 'filters-root' }));
+    const groups = [...new Set(cats.map((c) => c.group))];
+    root.innerHTML = `<div class="fl-scrim" id="flScrim"></div>
+      <section class="filters picker glass" role="dialog" aria-label="${esc(title)}">
+        <div class="fl-head"><h2>${esc(title)}</h2><button class="btn primary fl-done" id="flDone">Done</button></div>
+        <div class="fl-body">${groups.map((g) => `<div class="fl-group">${groups.length > 1 ? `<div class="fl-gh"><span>${esc(GROUP_LABEL[g] || g)}</span></div>` : ''}
+          ${cats.filter((c) => c.group === g).map((c) => `<button class="fl-row pk-row" data-pick="${c.id}" aria-pressed="${c.id === selected}">
+            <span class="fl-ic" style="--c:${color(c.id)}">${icon(c.id)}</span><span class="fl-name">${esc(c.name)}</span>
+            <span class="fl-count mono">${esc(meta(c))}</span><svg class="pk-check" viewBox="0 0 14 14" aria-hidden="true"><path d="m2 7 3.5 3.5L12 3"/></svg></button>`).join('')}</div>`).join('')}</div>
+      </section>`;
+    const close = () => { root.innerHTML = ''; };
+    $('#flScrim').onclick = close; $('#flDone').onclick = close;
+    root.querySelectorAll('[data-pick]').forEach((b) => (b.onclick = () => { close(); onPick(b.dataset.pick); }));
+    root.querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: 'center' });
+  }
   const color = (cat) => COLORS[cat] || '#8E8E93';
   const catName = (id) => (D.cats.find((c) => c.id === id) || { name: id }).name;
   const placesOf = (cat) => D.places.filter((p) => p.cat === cat);
@@ -171,10 +192,6 @@
   function renderPlan() {
     const themeIcon = { auto: 'A', light: '☀', dark: '☾' }[S.theme];
     const items = boardItems();
-    const routeChips = collectCats().map((c) => {
-      const left = c.count - foundCount(c.id);
-      return `<button class="chip" data-route="${c.id}" aria-pressed="${S.routeCat === c.id}"><span class="dot" style="background:${color(c.id)}"></span>${esc(c.name)} <span class="mono muted">${left}</span></button>`;
-    }).join('');
     view.innerHTML = `
     <div class="page">
       <div class="top"><span class="eyebrow">RUNSHEET · UNOFFICIAL GTA VI GUIDE</span>
@@ -196,7 +213,7 @@
         <span class="label">How long can you play?</span>
         <div class="seg" role="group" aria-label="Session length">${[20, 40, 60, 90].map((n) => `<button data-mins="${n}" aria-pressed="${S.mins === n}">${n}<small> min</small></button>`).join('')}</div>
         <span class="label" style="margin-top:4px">Collect tonight</span>
-        <div class="chips" id="routeChips">${routeChips}</div>
+        ${pickBtn('routePick', S.routeCat, `${placesOf(S.routeCat).length - foundCount(S.routeCat)} left`)}
       </section>
       </div><div class="col">
 
@@ -215,7 +232,6 @@
       ${creditsCard()}
     </div>`;
 
-    revealChip($('#routeChips'));
     bindInstall();
     $('#theme').onclick = () => { S.theme = { auto: 'light', light: 'dark', dark: 'auto' }[S.theme]; save(); route(); };
     $('#chDown').onclick = () => { S.chapter = Math.max(1, S.chapter - 1); save(); renderPlan(); };
@@ -223,7 +239,8 @@
     view.querySelectorAll('[data-who]').forEach((b) => (b.onclick = () => { S.who = b.dataset.who; save(); renderPlan(); }));
     view.querySelectorAll('[data-time]').forEach((b) => (b.onclick = () => { S.time = b.dataset.time; save(); renderPlan(); }));
     view.querySelectorAll('[data-mins]').forEach((b) => (b.onclick = () => { S.mins = +b.dataset.mins; save(); renderPlan(); }));
-    view.querySelectorAll('[data-route]').forEach((b) => (b.onclick = () => { S.routeCat = b.dataset.route; save(); renderPlan(); }));
+    $('#routePick').onclick = () => openPicker({ title: 'Collect tonight', cats: collectCats(), selected: S.routeCat,
+      meta: (c) => `${c.count - foundCount(c.id)} left`, onPick: (id) => { S.routeCat = id; save(); renderPlan(); } });
     $('#build').onclick = (e) => { e.preventDefault(); buildRun(); location.hash = 'run'; };
   }
 
@@ -667,7 +684,7 @@
     if (tab === 'collect') {
       body = `<ul class="list card two-col">${cc.map((c) => { const f = foundCount(c.id); return `
         <li><a class="item" href="#checklist/${c.id}" style="color:inherit;text-decoration:none">
-          <span class="name">${esc(c.name)}</span><span class="bar ${f === c.count ? 'done' : ''}"><i style="width:${Math.round(f / c.count * 100)}%"></i></span>
+          <span class="name"><span class="fl-ic gd-ic" style="--c:${color(c.id)}">${icon(c.id)}</span>${esc(c.name)}</span><span class="bar ${f === c.count ? 'done' : ''}"><i style="width:${Math.round(f / c.count * 100)}%"></i></span>
           <span class="count">${f}<small>/${c.count}</small></span><svg class="chev" viewBox="0 0 8 14" aria-hidden="true"><path d="m1 1 6 6-6 6"/></svg></a></li>`; }).join('')}</ul>`;
     } else if (tab === 'missions') {
       const g = {};
@@ -716,7 +733,7 @@
     const f = foundCount(cat), n = items.length;
     view.innerHTML = `<div class="page wide">
       <h1 class="title" style="padding:0 4px">Checklist</h1>
-      <div class="chips" id="checkChips">${cats.map((c) => `<button class="chip" data-cat="${c.id}" aria-pressed="${c.id === cat}"><span class="dot" style="background:${color(c.id)}"></span>${esc(c.name)}</button>`).join('')}</div>
+      ${pickBtn('checkPick', cat, `${f}/${n} found`)}
       <section class="card card-pad"><div class="row-ctl" style="min-height:0"><span class="label">${esc(catName(cat))}</span>
         <span class="big-count" id="ckCount">${f}<small> / ${n}</small></span></div><span class="bar ${f === n ? 'done' : ''}" id="ckBar"><i style="width:${Math.round(f / n * 100)}%"></i></span>
         <button class="btn secondary" id="routeLeft" ${f === n ? 'disabled' : ''}>Route the ${n - f} left</button></section>
@@ -725,8 +742,8 @@
           <div style="min-width:0"><div class="name">${esc(p.name)}</div><div class="sub">${esc(areaOf(p))}</div></div>
           <a class="link-btn" href="#map/${p.id}" style="text-decoration:none">Map</a></div></li>`; }).join('')}</ul>
     </div>`;
-    view.querySelectorAll('[data-cat]').forEach((b) => (b.onclick = () => (location.hash = 'checklist/' + b.dataset.cat)));
-    revealChip($('#checkChips'));
+    $('#checkPick').onclick = () => openPicker({ title: 'Checklist', cats, selected: cat,
+      meta: (c) => `${foundCount(c.id)}/${c.count}`, onPick: (id) => (location.hash = 'checklist/' + id) });
     // tick in place; rows only re-sort next time the list opens (fix 9)
     view.querySelectorAll('[data-found]').forEach((b) => (b.onclick = () => {
       const id = b.dataset.found, on = !S.found[id];
@@ -734,6 +751,7 @@
       b.setAttribute('aria-pressed', on); b.closest('.check-row').classList.toggle('done', on);
       const nf = foundCount(cat);
       $('#ckCount').innerHTML = `${nf}<small> / ${n}</small>`;
+      $('#checkPick .pk-meta').textContent = `${nf}/${n} found`;
       $('#ckBar').classList.toggle('done', nf === n); $('#ckBar i').style.width = Math.round(nf / n * 100) + '%';
       const rl = $('#routeLeft'); rl.textContent = `Route the ${n - nf} left`; rl.disabled = nf === n;
     }));
