@@ -31,7 +31,39 @@
     '1010-mural': '#FFCC00', 'unique-playlist': '#64D2FF', 'animal-crackers': '#BF5AF2', 'arcade-machine': '#5E5CE6',
     'safe': '#30A46C', 'atm-towable': '#34C759', 'bank': '#248A3D', 'big-bank': '#1F7A36', 'payday-loans': '#7CB342',
     'mission': '#D4A017', 'side': '#6E56CF', 'contact': '#7D7AFF', 'safehouse': '#00A3A3',
-    'ammu-nation': '#B23A48', 'pay-n-spray': '#2E86DE', 'purchasable-garage': '#576574', 'garage': '#576574' };
+    'ammu-nation': '#B23A48', 'pay-n-spray': '#2E86DE', 'purchasable-garage': '#576574', 'garage': '#576574',
+    'shop': '#F08C00', 'fast-food': '#E8590C', 'street-food': '#F4A261', 'gas-station': '#6D6D72', 'atm': '#2B9348',
+    'landmark': '#0096C7', 'transport': '#5856D6', 'vehicle': '#2F9E8F', 'animal': '#8C6D46', 'building': '#7E7E85', 'structure': '#9A9AA0' };
+  // One small line icon per category, drawn for this app (24 grid). f: filled shape, otherwise a stroke.
+  const ICON_PATHS = {
+    bolt: { f: 'M13 2 5 13h6l-1 9 8-11h-6z' }, phone: 'M6.5 3h3.5l1.8 4.6-2.6 1.8a11 11 0 0 0 5.4 5.4l1.8-2.6 4.6 1.8v3.5a2 2 0 0 1-2 2A17 17 0 0 1 4.5 5a2 2 0 0 1 2-2z',
+    eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z', heart: { f: 'M12 20.5s-8-4.8-8-11a4.4 4.4 0 0 1 8-2.6 4.4 4.4 0 0 1 8 2.6c0 6.2-8 11-8 11z' },
+    book: 'M4 5h6a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4zM20 5h-6a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h6z', gem: 'M7 4h10l4 5-9 11L3 9zM3 9h18M9.5 4 12 20 14.5 4',
+    spark: { f: 'M12 2.5l2.3 6.6 6.7 2.4-6.7 2.4L12 20.5l-2.3-6.6L3 11.5l6.7-2.4z' }, plane: { f: 'M21 15.5v-2l-8-5V3.6a1.4 1.4 0 0 0-2.8 0V8.5l-8 5v2l8-2.4v5l-2 1.5V21l3.4-1 3.4 1v-1.4l-2-1.5v-5z' },
+    brush: 'M19 3l2 2-9.5 9.5-2-2zM9.5 12.5c-2 0-3.5 1.4-3.5 3.2 0 1.5-1 2.6-3 3.3 4 1.6 8.5.4 8.5-4.5', note: 'M9 18V5l11-2v13M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM17 19a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+    paw: { f: 'M12 12.5c-3 0-5.5 3.2-5.5 5.4 0 1.8 1.8 2.1 5.5 2.1s5.5-.3 5.5-2.1c0-2.2-2.5-5.4-5.5-5.4zM5.5 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM9.5 7.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM14.5 7.5a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18.5 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4z' },
+    pad: 'M7 8h10a5 5 0 0 1 5 5v1.5a3 3 0 0 1-5.2 2L15 15H9l-1.8 1.5A3 3 0 0 1 2 14.5V13a5 5 0 0 1 5-5zM7 10.5v4M5 12.5h4M16 12h.01M18 14h.01',
+    safe: 'M4 4h16v15H4zM12 8.5a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 11.5h3M6 19v2M18 19v2', cash: 'M12 3v18M16.5 7.5c0-1.6-2-2.8-4.5-2.8S7.5 5.9 7.5 7.8s2.2 2.6 4.5 3.2 4.5 1.3 4.5 3.3-2 3-4.5 3-4.5-1.2-4.5-2.8',
+    star: { f: 'M12 2.8l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 3 1.1-6.3-4.6-4.4 6.3-.9z' }, ask: 'M8.8 9a3.3 3.3 0 1 1 4.6 3c-.9.4-1.4 1.1-1.4 2.1V15M12 18.6v.2',
+    person: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 21a7.5 7.5 0 0 1 15 0', home: 'M3 11l9-7.5 9 7.5M5.5 9v11.5h13V9M10 20.5v-6h4v6',
+    aim: 'M12 5a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM12 1.5v6M12 16.5v6M1.5 12h6M16.5 12h6', drop: { f: 'M12 2.5s7 7.7 7 12.2a7 7 0 0 1-14 0C5 10.2 12 2.5 12 2.5z' },
+    garage: 'M3 10l9-6 9 6v10.5H3zM7 20.5V13h10v7.5M7 16.5h10', bag: 'M5 8h14l-1.2 12.5H6.2zM9 8V6.5a3 3 0 0 1 6 0V8',
+    fork: 'M7 3v7.5M4.5 3v4.8a2.5 2.5 0 0 0 5 0V3M7 10.5V21M17 3c-2.3 1.2-3.5 4-3.5 7.5H17V21', fuel: 'M5 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16M3 21h14M5 10h10M15 7.5l3.5 2.5v7.5a1.5 1.5 0 0 0 3 0V9l-3-3',
+    camera: 'M3.5 8h3.5l2-3h6l2 3h3.5v11.5h-17zM12 9.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z', train: 'M6.5 3h11a2.5 2.5 0 0 1 2.5 2.5v9.5a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V5.5A2.5 2.5 0 0 1 6.5 3zM4 11h16M8 18l-2 3.5M16 18l2 3.5',
+    car: 'M5 16v-4l2-5h10l2 5v4M3 12h18v4.5H3zM6.5 16.5V19M17.5 16.5V19', city: 'M5 21V4h9v17M14 9h5v12M3 21h18M8 8h3M8 12h3M8 16h3',
+  };
+  const CAT_ICON = { 'stunt-jumps': 'bolt', nine1nine: 'phone', curiosity: 'eye', 'jack-of-hearts': 'heart', magazine: 'book', sculpture: 'gem',
+    delights: 'spark', 'under-the-bridge': 'plane', 'book-swap': 'book', '1010-mural': 'brush', 'unique-playlist': 'note', 'animal-crackers': 'paw',
+    'arcade-machine': 'pad', safe: 'safe', 'atm-towable': 'cash', bank: 'cash', 'big-bank': 'cash', 'payday-loans': 'cash', mission: 'star', side: 'ask',
+    contact: 'person', safehouse: 'home', 'ammu-nation': 'aim', 'pay-n-spray': 'drop', 'purchasable-garage': 'garage', garage: 'garage',
+    shop: 'bag', 'fast-food': 'fork', 'street-food': 'fork', 'gas-station': 'fuel', atm: 'cash', landmark: 'camera', transport: 'train',
+    vehicle: 'car', animal: 'paw', building: 'city', structure: 'city' };
+  // one hidden sprite, each pin just <use>s its icon
+  document.body.insertAdjacentHTML('afterbegin', '<svg width="0" height="0" style="position:absolute" aria-hidden="true">' +
+    Object.entries(ICON_PATHS).map(([k, v]) => `<symbol id="ic-${k}" viewBox="0 0 24 24">${typeof v === 'string'
+      ? `<path d="${v}" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`
+      : `<path d="${v.f}" fill="currentColor"/>`}</symbol>`).join('') + '</svg>');
+  const icon = (cat) => `<svg class="pin-ic" aria-hidden="true"><use href="#ic-${CAT_ICON[cat] || 'star'}"/></svg>`;
   const color = (cat) => COLORS[cat] || '#8E8E93';
   const catName = (id) => (D.cats.find((c) => c.id === id) || { name: id }).name;
   const placesOf = (cat) => D.places.filter((p) => p.cat === cat);
@@ -43,7 +75,7 @@
   const fromLL = (ll) => ({ x: ll.lng / 1000, y: -ll.lat / 1000 / AR });
   const nearestRegion = (p) => D.regions.reduce((b, r) => (Math.hypot(r.x - p.x, r.y - p.y) < Math.hypot(b.x - p.x, b.y - p.y) ? r : b));
   const areaOf = (p) => p.area || '';
-  const srcTag = (n) => `<span class="tag src">${n} SOURCE${n === 1 ? '' : 'S'}</span>`;
+  const srcTag = (n = 1) => `<span class="tag src">${n} SOURCE${n === 1 ? '' : 'S'}</span>`;
 
   function toast(msg) {
     document.querySelectorAll('.toast').forEach((t) => t.remove());
@@ -275,7 +307,7 @@
       const key = Math.floor(q.x / cell) + ':' + Math.floor(q.y / cell);
       (cells.get(key) || cells.set(key, []).get(key)).push(p);
     }
-    return [...cells.values()].map((g) => ({ pts: g, ll: L.latLng(toLL(g.reduce((a, p) => a + p.x, 0) / g.length, g.reduce((a, p) => a + p.y, 0) / g.length)) }));
+    return [...cells.entries()].map(([key, g]) => ({ key, pts: g, ll: L.latLng(toLL(g.reduce((a, p) => a + p.x, 0) / g.length, g.reduce((a, p) => a + p.y, 0) / g.length)) }));
   }
 
   function renderMap(focusId) {
@@ -309,27 +341,56 @@
         save(); drawChips(); drawPins();
       }));
     }
-    const shown = () => D.places.filter((p) => S.mapCats.includes(p.cat) && !(S.hideFound && S.found[p.id]));
-    function drawPins() {
-      layer.clearLayers();
-      const pin = (p) => { const f = !!S.found[p.id];
-        L.circleMarker(toLL(p.x, p.y), { interactive: false, radius: 7, color: css('--pin-ring'), weight: 2, fillColor: color(p.cat), fillOpacity: f ? 0.35 : 1, opacity: f ? 0.5 : 1 }).addTo(layer);
-        // invisible, larger tap area (fix 11)
-        L.circleMarker(toLL(p.x, p.y), { bubblingMouseEvents: false, radius: 18, stroke: false, fillOpacity: 0, fillColor: '#000' })
-          .bindTooltip(esc(p.name), { className: 'place-tip', direction: 'top', offset: [0, -10] })
-          .on('click', () => { openPlace(p); placeInView(p); }).addTo(layer); };
-      // zoomed out: group close pins into numbered bubbles; zoomed in: every pin
-      const groups = map.getZoom() >= 2 ? shown().map((p) => ({ pts: [p] })) : clusterPins(map, shown(), 64);
-      groups.forEach((g) => {
-        if (g.pts.length < 3) return g.pts.forEach(pin);
-        const n = g.pts.length, sz = n < 10 ? 34 : n < 50 ? 38 : 44;
-        L.marker(g.ll, { pane: 'clusters', keyboard: false, icon: L.divIcon({ className: '', iconSize: [sz, sz],
-          html: `<div class="cluster" style="width:${sz}px;height:${sz}px">${n}</div>` }) })
-          .on('click', () => map.flyToBounds(L.latLngBounds(g.pts.map((p) => toLL(p.x, p.y))).pad(0.3), { duration: 0.5, maxZoom: 3 })).addTo(layer);
+    // buildings come in map squares: load the squares on screen while their chip is on, drop the rest (data/more/)
+    const MORE_CATS = ['building', 'structure'];
+    const more = new Map(); // square key -> places, or 'loading'
+    function syncMore() {
+      const want = new Set();
+      if (MORE_CATS.some((c) => S.mapCats.includes(c)) && D.moreIndex && map.getZoom() >= 2) { // buildings show from zoom 2
+        const g = D.moreIndex.grid, b = map.getBounds().pad(0.2), a = fromLL(b.getNorthWest()), z = fromLL(b.getSouthEast());
+        for (let i = Math.max(0, Math.floor(a.x * g)); i <= Math.min(g - 1, Math.floor(z.x * g)); i++)
+          for (let j = Math.max(0, Math.floor(a.y * g)); j <= Math.min(g - 1, Math.floor(z.y * g)); j++)
+            if (D.moreIndex.chunks[i + '_' + j]) want.add(i + '_' + j);
+      }
+      for (const k of [...more.keys()]) if (!want.has(k)) more.delete(k); // off screen: let it go
+      want.forEach((k) => {
+        if (more.has(k)) return;
+        more.set(k, 'loading');
+        fetch(`data/more/${k}.json`).then((r) => r.json()).then((ps) => { if (more.get(k) === 'loading' && map) { more.set(k, ps); drawPins(); } })
+          .catch(() => more.delete(k));
       });
+    }
+    const morePlaces = () => [...more.values()].filter(Array.isArray).flat();
+    const shown = () => D.places.concat(morePlaces()).filter((p) => S.mapCats.includes(p.cat) && !(S.hideFound && S.found[p.id]));
+
+    // Pins: only what is on screen is in the page, reused between redraws (keyed), so panning stays light.
+    const live = new Map();
+    const pinMarker = (p, f) => L.marker(toLL(p.x, p.y), { keyboard: false, riseOnHover: true,
+      icon: L.divIcon({ className: 'pin-wrap', iconSize: [36, 36], // 36px tap area (fix 11), 26px pin
+        html: `<div class="pin${f ? ' found' : ''}" style="--c:${color(p.cat)}">${icon(p.cat)}</div>` }) })
+      .bindTooltip(esc(p.name), { className: 'place-tip', direction: 'top', offset: [0, -16] })
+      .on('click', () => { openPlace(p); placeInView(p); });
+    const clusterMarker = (g) => { const n = g.pts.length, sz = n < 10 ? 34 : n < 50 ? 38 : n < 200 ? 44 : 50;
+      return L.marker(g.ll, { pane: 'clusters', keyboard: false, riseOnHover: true, icon: L.divIcon({ className: 'pin-wrap', iconSize: [sz, sz],
+        html: `<div class="cluster" style="width:${sz}px;height:${sz}px">${n}</div>` }) })
+        .on('click', () => map.flyToBounds(L.latLngBounds(g.pts.map((p) => toLL(p.x, p.y))).pad(0.3), { duration: 0.5, maxZoom: 3 })); };
+    function drawPins() {
+      if (!map) return;
+      syncMore();
+      const z = map.getZoom(), view = map.getBounds().pad(0.25);
+      const inView = shown().filter((p) => view.contains(toLL(p.x, p.y)));
+      // zoomed out, or a crowded view: group close pins into numbered bubbles; otherwise every pin
+      const groups = z >= 3 || (z >= 2 && inView.length <= 250) ? inView.map((p) => ({ key: p.id, pts: [p] })) : clusterPins(map, inView, 64);
+      const next = new Map();
+      groups.forEach((g) => {
+        if (g.pts.length < 3) g.pts.forEach((p) => { const f = !!S.found[p.id]; next.set(`p${p.id}${f ? 'f' : ''}`, () => pinMarker(p, f)); });
+        else next.set(`c${z}:${g.key}:${g.pts.length}`, () => clusterMarker(g));
+      });
+      for (const [k, m] of live) if (!next.has(k)) { layer.removeLayer(m); live.delete(k); }
+      for (const [k, make] of next) if (!live.has(k)) { const m = make(); layer.addLayer(m); live.set(k, m); }
       if (wpRing) { wpRing.remove(); wpRing = null; }
-      const w = S.waypoint && D.places.find((p) => p.id === S.waypoint);
-      if (w) wpRing = L.circleMarker(toLL(w.x, w.y), { radius: 14, color: css('--accent'), weight: 3, fill: false, interactive: false }).addTo(map);
+      const w = S.waypoint && D.places.concat(morePlaces()).find((p) => p.id === S.waypoint);
+      if (w) wpRing = L.circleMarker(toLL(w.x, w.y), { radius: 17, color: css('--accent'), weight: 3, fill: false, interactive: false }).addTo(map);
       updateVis();
     }
     function visible() { if (!map) return []; const b = map.getBounds(); return shown().filter((p) => !S.found[p.id] && b.contains(toLL(p.x, p.y))); }
@@ -360,6 +421,7 @@
       if (same) return;
       const where = [p.area && !(p.near || '').includes(p.area) ? p.area : '', p.near].filter(Boolean).join(' · ');
       const help = p.desc || (D.catHelp || {})[p.cat];
+      const img = p.img && p.img.startsWith('/') ? 'https://gta6tracker.org' + p.img : p.img;
       const cap = p.imgSrc === 'gtadb' ? 'Photo: GTADB.ORG, CC BY 4.0 · may show a spot nearby' : 'Image: GTA Wiki';
       const link = (href, text) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>`;
       sheetRoot.innerHTML = `
@@ -372,7 +434,7 @@
               <h2>${esc(p.name)}</h2>
               ${where ? `<span class="pc-near">${esc(where)}</span>` : ''}
             </div>
-            ${p.img ? `<figure class="pc-img"><img src="${esc(p.img)}" alt="${esc(p.name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('figure').remove()"><figcaption>${esc(cap)}</figcaption></figure>` : ''}
+            ${img ? `<figure class="pc-img"><img src="${esc(img)}" alt="${esc(p.name)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('figure').remove()"><figcaption>${esc(cap)}</figcaption></figure>` : ''}
             <p class="pc-desc${help ? '' : ' none'}">${help ? esc(help) : 'No details for this spot yet. The source page below may have more.'}</p>
           </div>
           <div class="pc-src"><span class="pc-src-h">Sources</span>
@@ -430,8 +492,7 @@
       buildRun(near, `${near.length} stops on screen`, c);
       location.hash = 'run';
     };
-    map.on('moveend', updateVis);
-    map.on('zoomend', drawPins);
+    map.on('moveend', drawPins); // also runs updateVis
     map.on('click', () => { sheetRoot.innerHTML = ''; results.hidden = true; document.body.classList.remove('searching'); });
     q.onkeydown = (e) => { if (e.key === 'Escape') { q.value = ''; results.hidden = true; document.body.classList.remove('searching'); } };
 
@@ -597,7 +658,7 @@
   }
 
   // ---------- boot ----------
-  Promise.all(['places', 'guide', 'tonight', 'money', 'basemap'].map((n) => fetch(`data/${n}.json`).then((r) => r.json())))
-    .then(([p, guide, tonight, money, basemap]) => { D = { ...p, guide, tonight, money, basemap }; route(); })
+  Promise.all(['places', 'guide', 'tonight', 'money', 'basemap', 'more'].map((n) => fetch(`data/${n}.json`).then((r) => r.json())))
+    .then(([p, guide, tonight, money, basemap, moreIndex]) => { D = { ...p, guide, tonight, money, basemap, moreIndex }; route(); })
     .catch((e) => { view.innerHTML = `<div class="page"><h1 class="title">Couldn't load data</h1><p class="muted">${esc(e.message)}</p></div>`; });
 })();

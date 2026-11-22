@@ -1,10 +1,10 @@
 // Offline support. App files are cached on install; data and map library too.
 // Change VERSION (cache name) when shipping changes so phones pick up the new files.
-const VERSION = 'runsheet-cache-5';
+const VERSION = 'runsheet-cache-6';
 const CORE = [
   './', './index.html', './styles.css', './app.js', './route.js', './manifest.webmanifest',
   './icons/icon-180.png', './icons/icon-192.png', './icons/icon-512.png',
-  './data/places.json', './data/guide.json', './data/tonight.json', './data/money.json', './data/basemap.json',
+  './data/places.json', './data/guide.json', './data/tonight.json', './data/money.json', './data/basemap.json', './data/more.json',
   // whole-map view of the map art, so it shows offline; closer tiles are cached as you look at them
   './tiles/-2/0_0.webp', './tiles/-2/0_1.webp', './tiles/-1/0_0.webp', './tiles/-1/0_1.webp', './tiles/-1/0_2.webp', './tiles/-1/1_0.webp', './tiles/-1/1_1.webp', './tiles/-1/1_2.webp', './tiles/0/0_0.webp', './tiles/0/0_1.webp', './tiles/0/0_2.webp', './tiles/0/0_3.webp', './tiles/0/0_4.webp', './tiles/0/0_5.webp', './tiles/0/1_0.webp', './tiles/0/1_1.webp', './tiles/0/1_2.webp', './tiles/0/1_3.webp', './tiles/0/1_4.webp', './tiles/0/1_5.webp', './tiles/0/2_0.webp', './tiles/0/2_1.webp', './tiles/0/2_2.webp', './tiles/0/2_3.webp', './tiles/0/2_4.webp', './tiles/0/2_5.webp', './tiles/0/3_0.webp', './tiles/0/3_1.webp', './tiles/0/3_2.webp', './tiles/0/3_3.webp', './tiles/0/3_4.webp', './tiles/0/3_5.webp',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css', 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
