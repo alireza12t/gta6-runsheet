@@ -369,8 +369,7 @@ body:has(.sheet) .toast, body:has(.run-card) .toast { bottom: auto; top: calc(12
 /* map follow-ups */
 .map-route { bottom: calc(104px + env(safe-area-inset-bottom)); }
 .leaflet-control-attribution { white-space: nowrap; max-width: calc(100vw - 24px); overflow: hidden; text-overflow: ellipsis; }
-/* hide hairline seams between tiles */
-.base-tiles img.leaflet-tile { width: 256.6px !important; height: 256.6px !important; mix-blend-mode: normal !important; }
+/* tile seams: avoided by whole zoom steps (zoomSnap 1). No size hack: retina tiles are 128 px. */
 @media (min-width: 900px) { .map-route { bottom: 24px; } }
 
 /* icon pins: one glyph per category, lift on hover (desktop) */

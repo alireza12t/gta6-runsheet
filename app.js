@@ -256,7 +256,7 @@
     const bounds = L.latLngBounds(T.bounds);
     // the Run map has no pan limit, so a southern route can sit above the card (fix 3)
     const limits = opts.free ? {} : { maxBounds: bounds.pad(0.1), maxBoundsViscosity: 0.8 };
-    const m = L.map(el, { crs: L.CRS.Simple, zoomControl: false, attributionControl: true, minZoom: opts.free ? -2 : -1, maxZoom: 3,
+    const m = L.map(el, { crs: L.CRS.Simple, zoomControl: false, attributionControl: true, minZoom: opts.free ? -2 : -1, maxZoom: 4,
       zoomSnap: 1, // whole zoom steps: tiles stay crisp with no seams
       preferCanvas: true, fadeAnimation: false, ...limits });
     m.attributionControl.setPrefix(false);
@@ -265,7 +265,16 @@
     m.createPane('labels').style.zIndex = 420;
     m.createPane('clusters').style.zIndex = 410; // pin bubbles under place names
     m.getPane('borders').style.pointerEvents = m.getPane('labels').style.pointerEvents = 'none';
-    L.tileLayer('tiles/{z}/{x}_{y}.webp', { tileSize: 256, minNativeZoom: T.minNativeZoom, maxNativeZoom: T.maxNativeZoom,
+    // Retina screens get tiles one zoom sharper (drawn at half size). Flat open-sea tiles were never written:
+    // meta 'have' lists the tiles that exist, so the app never asks for the others (the map background is the same sea).
+    const hd = (window.devicePixelRatio || 1) > 1.4 ? 1 : 0;
+    const have = Object.fromEntries(Object.entries(T.have || {}).map(([z, v]) => [z, new Set(v.split(' '))]));
+    const Base = L.TileLayer.extend({ createTile(c, done) {
+      const z = this._getZoomForUrl(), set = have[z];
+      if (set && !set.has(c.x + '_' + c.y)) { const d = document.createElement('div'); setTimeout(() => done(null, d), 0); return d; }
+      return L.TileLayer.prototype.createTile.call(this, c, done);
+    } });
+    new Base('tiles/{z}/{x}_{y}.webp', { tileSize: 256 >> hd, zoomOffset: hd, minNativeZoom: T.minNativeZoom - hd, maxNativeZoom: T.maxNativeZoom - hd,
       minZoom: -2, maxZoom: 5, bounds, noWrap: true, keepBuffer: 3, className: 'base-tiles', attribution: '' }).addTo(m);
 
     // borders between areas (dashed), drawn once on one canvas; districts get names only
@@ -373,14 +382,14 @@
     const clusterMarker = (g) => { const n = g.pts.length, sz = n < 10 ? 34 : n < 50 ? 38 : n < 200 ? 44 : 50;
       return L.marker(g.ll, { pane: 'clusters', keyboard: false, riseOnHover: true, icon: L.divIcon({ className: 'pin-wrap', iconSize: [sz, sz],
         html: `<div class="cluster" style="width:${sz}px;height:${sz}px">${n}</div>` }) })
-        .on('click', () => map.flyToBounds(L.latLngBounds(g.pts.map((p) => toLL(p.x, p.y))).pad(0.3), { duration: 0.5, maxZoom: 3 })); };
+        .on('click', () => map.flyToBounds(L.latLngBounds(g.pts.map((p) => toLL(p.x, p.y))).pad(0.3), { duration: 0.5, maxZoom: 4 })); };
     function drawPins() {
       if (!map) return;
       syncMore();
       const z = map.getZoom(), view = map.getBounds().pad(0.25);
       const inView = shown().filter((p) => view.contains(toLL(p.x, p.y)));
       // zoomed out, or a crowded view: group close pins into numbered bubbles; otherwise every pin
-      const groups = z >= 3 || (z >= 2 && inView.length <= 250) ? inView.map((p) => ({ key: p.id, pts: [p] })) : clusterPins(map, inView, 64);
+      const groups = z >= 4 || (z >= 2 && inView.length <= 250) ? inView.map((p) => ({ key: p.id, pts: [p] })) : clusterPins(map, inView, 64);
       const next = new Map();
       groups.forEach((g) => {
         if (g.pts.length < 3) g.pts.forEach((p) => { const f = !!S.found[p.id]; next.set(`p${p.id}${f ? 'f' : ''}`, () => pinMarker(p, f)); });
