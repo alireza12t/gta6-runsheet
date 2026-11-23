@@ -760,6 +760,6 @@
 
   // ---------- boot ----------
   Promise.all(['places', 'guide', 'tonight', 'money', 'basemap', 'more'].map((n) => fetch(`data/${n}.json`).then((r) => r.json())))
-    .then(([p, guide, tonight, money, basemap, moreIndex]) => { D = { ...p, guide, tonight, money, basemap, moreIndex }; route(); })
+    .then(([p, guide, tonight, money, basemap, moreIndex]) => { D = { ...p, guide, tonight, money, basemap, moreIndex }; window.__rsReady = true; route(); })
     .catch((e) => { view.innerHTML = `<div class="page"><h1 class="title">Couldn't load data</h1><p class="muted">${esc(e.message)}</p></div>`; });
 })();

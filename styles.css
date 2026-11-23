@@ -475,3 +475,25 @@ body:has(.sheet) .toast, body:has(.run-card) .toast { bottom: auto; top: calc(12
 }
 .list .item .name:has(.gd-ic) { display: flex; align-items: center; }
 @media (max-width: 420px) { .list .item:has(.gd-ic) { grid-template-columns: 1fr 44px 52px 12px; } }
+
+/* ---------- launch screen (same as the iPhone app) ---------- */
+#loader { position: fixed; inset: 0; z-index: 9999; background: #000; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  --trace: 0; --fill: 0; transition: opacity .45s ease-out; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+#loader.out { opacity: 0; pointer-events: none; }
+.ld-mark { position: relative; width: min(300px, 72vw); aspect-ratio: 1; margin-bottom: 26px; transform: scale(.92); transition: transform .7s cubic-bezier(.34,1.56,.64,1), filter .7s; }
+#loader.loaded .ld-mark { transform: scale(1); filter: drop-shadow(0 0 30px rgba(255,107,26,.7)); }
+.ld-mark svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ld-rise { transform-box: view-box; transform-origin: 50% 100%; transform: scaleY(var(--fill)); }
+.ld-trace, .ld-r-trace { fill: none; stroke-dasharray: 1; stroke-dashoffset: calc(1 - var(--trace)); opacity: calc(1 - var(--fill)); filter: drop-shadow(0 0 6px #FF6B1A); }
+.ld-trace { stroke: #FF6B1A; stroke-width: 2; }
+.ld-r-trace { stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-dasharray: 1; }
+.ld-edge { fill: none; stroke: #5A1A00; stroke-width: 10; stroke-linejoin: round; }
+.ld-rim { fill: none; stroke: #FFD08A; stroke-width: 2; }
+.ld-r-under { fill: none; stroke: #1C0A00; stroke-width: 12; stroke-linecap: round; }
+.ld-r-top { fill: none; stroke: #fff; stroke-width: 6; stroke-linecap: round; }
+.ld-name { font: 800 30px/1 Inter, system-ui, sans-serif; letter-spacing: 8px; padding-left: 8px; opacity: .85; transition: opacity .4s; }
+#loader.loaded .ld-name { opacity: 1; }
+.ld-pct { font: 700 13px/1 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 3px; font-variant-numeric: tabular-nums; }
+#loader.loaded .ld-pct { font-family: Inter, system-ui, sans-serif; color: rgba(255,255,255,.7); animation: ld-up .5s ease-out; }
+@keyframes ld-up { from { opacity: 0; transform: translateY(8px); } }
+.ld-foot { position: absolute; bottom: calc(18px + env(safe-area-inset-bottom)); left: 24px; right: 24px; margin: 0; text-align: center; font: 400 11px/1.4 Inter, system-ui, sans-serif; color: #8E8E93; }

@@ -19,6 +19,30 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<div id="loader" role="status" aria-label="Runsheet is loading">
+  <div class="ld-mark">
+    <svg id="ld-land" viewBox="0 0 300 300" aria-hidden="true">
+      <defs>
+        <linearGradient id="ld-sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFC46B"/><stop offset=".35" stop-color="#FF8A2B"/><stop offset=".7" stop-color="#E8590C"/><stop offset="1" stop-color="#B8380A"/></linearGradient>
+        <clipPath id="ld-rise"><rect class="ld-rise" x="0" y="0" width="300" height="300"/></clipPath>
+      </defs>
+      <g class="ld-filled" clip-path="url(#ld-rise)">
+        <path class="ld-edge"/><path fill="url(#ld-sun)"/><path class="ld-rim"/>
+      </g>
+      <path class="ld-trace" pathLength="1"/>
+    </svg>
+    <svg class="ld-route" viewBox="0 0 460 360" aria-hidden="true">
+      <g clip-path="url(#ld-rise2)"><defs><clipPath id="ld-rise2"><rect class="ld-rise" x="0" y="0" width="460" height="360"/></clipPath></defs>
+        <path class="ld-r-under" d="M60,300 C120,250 110,190 170,170 S260,200 290,140 S330,60 400,50"/>
+        <path class="ld-r-top" d="M60,300 C120,250 110,190 170,170 S260,200 290,140 S330,60 400,50"/></g>
+      <path class="ld-r-trace" pathLength="1" d="M60,300 C120,250 110,190 170,170 S260,200 290,140 S330,60 400,50"/>
+    </svg>
+  </div>
+  <div class="ld-name">RUNSHEET</div>
+  <div class="ld-pct">LOADING 0%</div>
+  <p class="ld-foot">Fan made. Not affiliated with Rockstar Games or Take-Two Interactive.</p>
+</div>
+<script src="loader.js"></script>
 <div id="app">
   <main id="view" aria-live="polite"></main>
   <div id="sheet-root"></div>

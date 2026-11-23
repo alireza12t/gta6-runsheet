@@ -1,0 +1,16 @@
+{
+  "name": "gta6-runsheet-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for GTA 6 (GTA VI): 1,300+ collectible and map locations, missions, side missions, cheats, trophies, money tips and session plans for Claude, ChatGPT, Cursor and other AI assistants.",
+  "mcpName": "io.github.alireza12t/gta6-runsheet",
+  "bin": { "gta6-runsheet-mcp": "server.js" },
+  "files": ["server.js", "README.md", "LICENSE"],
+  "type": "commonjs",
+  "engines": { "node": ">=18" },
+  "keywords": ["mcp", "mcp-server", "model-context-protocol", "gta6", "gta-6", "gta vi", "grand theft auto", "collectibles", "game guide", "claude", "chatgpt"],
+  "homepage": "https://alireza12t.github.io/gta6-runsheet/",
+  "repository": { "type": "git", "url": "git+https://github.com/alireza12t/gta6-runsheet.git", "directory": "mcp" },
+  "bugs": "https://github.com/alireza12t/gta6-runsheet/issues",
+  "author": "Alireza Toghiani (https://alireza12t.github.io/)",
+  "license": "MIT"
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.alireza12t/gta6-runsheet",
+  "title": "Runsheet: GTA VI guide",
+  "description": "GTA 6 collectibles, map locations, missions, cheats, trophies, money tips and session plans.",
+  "websiteUrl": "https://alireza12t.github.io/gta6-runsheet/",
+  "repository": { "url": "https://github.com/alireza12t/gta6-runsheet", "source": "github", "subfolder": "mcp" },
+  "version": "1.0.0",
+  "packages": [
+    { "registryType": "npm", "identifier": "gta6-runsheet-mcp", "version": "1.0.0", "transport": { "type": "stdio" } }
+  ]
+}

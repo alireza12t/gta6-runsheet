@@ -43,6 +43,16 @@ Every other guide is a list or a pin map. Runsheet tells you **what to do tonigh
 
 Your progress stays on your device. Nothing is sent anywhere.
 
+## Ask your AI about GTA VI
+
+Runsheet has an MCP server, so Claude, Cursor and other AI assistants can plan your session, find collectibles and answer mission, cheat and money questions with map links.
+
+```bash
+claude mcp add gta6 -- npx -y gta6-runsheet-mcp
+```
+
+Setup for other apps is in [mcp/README.md](mcp/README.md).
+
 ## Run it locally
 
 No build step. It's plain HTML, CSS and JavaScript.
@@ -60,7 +70,9 @@ Then open http://localhost:5173.
 | `app.js` | Screens: Plan, Map, Guide, Checklist, Run |
 | `route.js` | Route solver (nearest neighbour, then 2-opt) |
 | `styles.css` | Light and dark themes, liquid glass |
+| `loader.js` | Launch screen |
 | `sw.js` | Offline cache |
+| `mcp/` | MCP server for AI assistants |
 | `data/` | Places, guide, plan items, money tips, map outline |
 
 ## Status
